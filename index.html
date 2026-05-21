@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PokeRastro Incremental</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="arena-panel" aria-label="Zona de aventura">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">PokeRastro</p>
+            <h1>Ruta infinita</h1>
+          </div>
+          <div class="resource-row" aria-label="Recursos">
+            <span><strong id="gold">0</strong> oro</span>
+            <span><strong id="steps">0</strong> pasos</span>
+            <span><strong id="caughtCount">0</strong> capturas</span>
+          </div>
+        </header>
+
+        <div class="scene">
+          <div class="battlefield">
+            <div class="battle-slot wild-slot" id="wildSlot">
+              <img id="fieldWildSprite" alt="" class="field-sprite wild-field-sprite">
+              <div class="battle-hud wild-hud">
+                <div class="hud-line">
+                  <strong id="fieldWildName">Sin encuentro</strong>
+                  <span id="fieldWildLevel">Nv. --</span>
+                </div>
+                <p id="fieldWildTags">Camina para buscar un Pokemon.</p>
+                <div class="health-bar">
+                  <span id="wildHpBar"></span>
+                </div>
+              </div>
+              <span class="damage-pop" id="wildDamagePop"></span>
+            </div>
+
+            <div class="battle-slot ally-slot">
+              <img id="fieldActiveSprite" alt="" class="field-sprite ally-field-sprite">
+              <div class="battle-hud ally-hud">
+                <div class="hud-line">
+                  <strong id="fieldActiveName">Tu Pokemon</strong>
+                  <span id="fieldActiveLevel">Nv. 1</span>
+                </div>
+                <p id="fieldActiveTags">Listo para combatir.</p>
+                <div class="health-bar ally">
+                  <span id="activeHpBar"></span>
+                </div>
+              </div>
+              <span class="damage-pop ally-pop" id="activeDamagePop"></span>
+            </div>
+
+            <div class="battle-message" id="battleMessage">Camina por la hierba alta para iniciar un encuentro.</div>
+          </div>
+        </div>
+
+        <div class="action-grid" aria-label="Acciones">
+          <button id="walkBtn" class="primary-action" type="button">Caminar</button>
+          <button id="attackBtn" type="button">Atacar</button>
+          <button id="ballBtn" type="button">Mochila Ball</button>
+          <button id="potionBtn" type="button">Mochila Cura</button>
+        </div>
+
+        <nav class="menu-grid" aria-label="Menu">
+          <button id="collectionBtn" type="button">Coleccion</button>
+          <button id="shopBtn" type="button">Tienda</button>
+          <button id="centerBtn" type="button">Centro Pokemon</button>
+          <button id="achievementsBtn" type="button">Logros</button>
+          <button id="missionsBtn" type="button">Misiones</button>
+          <button id="logBtn" type="button">Bitacora</button>
+        </nav>
+      </section>
+
+      <aside class="side-panel" aria-label="Panel de progreso">
+        <section class="player-card">
+          <p class="eyebrow">Companero activo</p>
+          <div class="active-row">
+            <img id="activeSprite" alt="" class="active-sprite">
+            <div>
+              <h2 id="activeName">Inicial pendiente</h2>
+              <p id="activeMeta">Tu primer Pokemon se asigna al iniciar.</p>
+              <div class="level-line">
+                <span id="activeLevel">Nv. 1</span>
+                <span id="activeXp">0 / 30 XP</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="quick-card">
+          <p class="eyebrow">Mochila</p>
+          <h2 id="inventory">0 Balls - 0 curas</h2>
+          <p id="encounterHint">Los legendarios son raros y resisten mas la captura.</p>
+        </section>
+      </aside>
+    </main>
+
+    <div class="modal hidden" id="walkModal" role="dialog" aria-modal="true" aria-label="Caminando">
+      <div class="walk-dialog">
+        <img src="img/furret-walk.gif" alt="Pokemon caminando">
+        <strong>Caminando...</strong>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="shopModal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="shopTitle">Tienda</h2>
+          <button class="close-modal" data-close="shopModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="shopInventory">0 Balls - 0 curas</p>
+        <h3>Balls</h3>
+        <div class="shop-grid" id="ballShopList"></div>
+        <h3>Pociones</h3>
+        <div class="shop-grid" id="potionShopList"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="ballBagModal" role="dialog" aria-modal="true" aria-labelledby="ballBagTitle">
+      <div class="dialog">
+        <div class="modal-head">
+          <h2 id="ballBagTitle">Elegir Ball</h2>
+          <button class="close-modal" data-close="ballBagModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="capturePreview">Sin encuentro activo.</p>
+        <div class="bag-grid" id="ballBagList"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="potionBagModal" role="dialog" aria-modal="true" aria-labelledby="potionBagTitle">
+      <div class="dialog">
+        <div class="modal-head">
+          <h2 id="potionBagTitle">Elegir cura</h2>
+          <button class="close-modal" data-close="potionBagModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="healPreview">Tu Pokemon esta listo.</p>
+        <div class="bag-grid" id="potionBagList"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="collectionModal" role="dialog" aria-modal="true" aria-labelledby="collectionTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="collectionTitle">Coleccion</h2>
+          <div class="head-actions">
+            <button id="sortBtn" class="ghost" type="button">Mejores</button>
+            <button class="close-modal" data-close="collectionModal" type="button">Cerrar</button>
+          </div>
+        </div>
+        <div id="collectionList" class="collection-list"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="dialog result-dialog">
+        <div class="modal-head">
+          <h2 id="resultTitle">Resultado</h2>
+          <button class="close-modal" data-close="resultModal" type="button">Cerrar</button>
+        </div>
+        <div class="result-profile">
+          <img id="resultSprite" alt="">
+          <div>
+            <p class="eyebrow" id="resultKind">Combate</p>
+            <h2 id="resultName">Pokemon</h2>
+            <p id="resultText"></p>
+          </div>
+        </div>
+        <div id="rewardList" class="reward-list"></div>
+        <div class="stats-actions">
+          <button id="resultCenterBtn" class="primary-action" type="button">Ir al Centro Pokemon</button>
+          <button id="resultCloseBtn" class="close-modal" data-close="resultModal" type="button">Seguir en la ruta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="achievementsModal" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="achievementsTitle">Logros</h2>
+          <button class="close-modal" data-close="achievementsModal" type="button">Cerrar</button>
+        </div>
+        <div id="achievementList" class="progress-list"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="missionsModal" role="dialog" aria-modal="true" aria-labelledby="missionsTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="missionsTitle">Misiones</h2>
+          <button class="close-modal" data-close="missionsModal" type="button">Cerrar</button>
+        </div>
+        <div id="missionList" class="progress-list"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="statsModal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+      <div class="dialog stats-dialog">
+        <div class="modal-head">
+          <h2 id="statsTitle">Ficha Pokemon</h2>
+          <button class="close-modal" data-close="statsModal" type="button">Cerrar</button>
+        </div>
+        <div class="stats-profile">
+          <img id="statsSprite" alt="">
+          <div>
+            <p class="eyebrow" id="statsKind">Pokemon</p>
+            <h2 id="statsName">Nombre</h2>
+            <p id="statsMeta"></p>
+          </div>
+        </div>
+        <p class="pokedex-text" id="statsDescription"></p>
+        <div class="mini-stats" id="statsGrid"></div>
+        <div class="stats-actions" id="statsActions"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="logModal" role="dialog" aria-modal="true" aria-labelledby="logTitle">
+      <div class="dialog">
+        <div class="modal-head">
+          <h2 id="logTitle">Bitacora</h2>
+          <button class="close-modal" data-close="logModal" type="button">Cerrar</button>
+        </div>
+        <div id="battleLog" class="battle-log"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="centerModal" role="dialog" aria-modal="true" aria-labelledby="centerTitle">
+      <div class="dialog center-dialog">
+        <h2 id="centerTitle">Centro Pokemon</h2>
+        <p id="centerText">Tu Pokemon se debilito. La enfermera restauro todo tu equipo, pero el encuentro se perdio.</p>
+        <div class="stats-actions">
+          <button id="centerHealBtn" class="primary-action" type="button">Curar equipo</button>
+          <button class="close-modal" data-close="centerModal" type="button">Volver a la ruta</button>
+        </div>
+      </div>
+    </div>
+
+    <template id="collectionTemplate">
+      <article class="collection-item">
+        <button class="team-button" type="button">
+          <img alt="">
+          <span>
+            <strong></strong>
+            <small></small>
+          </span>
+        </button>
+        <button class="release-button" type="button">Liberar</button>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
