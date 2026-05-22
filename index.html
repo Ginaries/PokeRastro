@@ -118,6 +118,43 @@
       </div>
     </div>
 
+    <div class="modal hidden" id="autoBattleModal" role="dialog" aria-modal="true" aria-labelledby="autoBattleTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="autoBattleTitle">Auto-pelea 2.0</h2>
+          <button class="close-modal" data-close="autoBattleModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="autoBattleStatus">Bloqueado: requiere 5000 oro.</p>
+        <div class="auto-config">
+          <label>
+            Objetivo
+            <select id="autoGoalSelect"></select>
+          </label>
+          <label>
+            Tipo
+            <select id="autoTypeSelect"></select>
+          </label>
+          <label>
+            Rareza
+            <select id="autoRaritySelect">
+              <option value="legendary">Legendarios</option>
+              <option value="mythical">Miticos</option>
+              <option value="rare">Legendarios o miticos</option>
+              <option value="shiny">Variocolor</option>
+            </select>
+          </label>
+          <label>
+            ID Pokedex
+            <input id="autoPokemonInput" type="number" min="1" max="1025" placeholder="25">
+          </label>
+        </div>
+        <div id="autoUpgradeList" class="upgrade-list"></div>
+        <div class="modal-actions">
+          <button id="autoStartBtn" class="primary-action" type="button">Iniciar auto-pelea</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal hidden" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
       <div class="dialog account-dialog">
         <h2 id="accountTitle">PokeRastro</h2>

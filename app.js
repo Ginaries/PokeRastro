@@ -15,6 +15,23 @@ const CAPTURE_AREAS = Array.from({ length: MAX_LEVEL / 10 }, (_, index) => {
   return { id: index, name: `Area ${index + 1}`, min, max: min + 9 };
 });
 const typeIdCache = new Map();
+const AUTO_GOALS = [
+  { id: "defeat", name: "Derrotar y avanzar", requires: null },
+  { id: "capture", name: "Capturar especiales", requires: "capture" },
+  { id: "money", name: "Mas oro por combate", requires: "money" },
+  { id: "type", name: "Buscar tipo especifico", requires: "type" },
+  { id: "rarity", name: "Buscar rareza", requires: "rarity" },
+  { id: "species", name: "Buscar Pokedex exacto", requires: "species" }
+];
+const AUTO_UPGRADES = [
+  { id: "core", name: "Auto-pelea 2.0", cost: 5000, note: "Activa el panel y el combate automatico balanceado." },
+  { id: "heal", name: "Cura automatica", cost: 18000, note: "Usa la mejor cura disponible cuando el activo queda bajo." },
+  { id: "capture", name: "Captura automatica", cost: 42000, note: "Puede lanzar Balls contra objetivos valiosos." },
+  { id: "money", name: "Radar de oro", cost: 76000, note: "Prioriza combates con mejores recompensas y corta si aparecen objetivos raros." },
+  { id: "type", name: "Radar elemental", cost: 125000, note: "Permite buscar y capturar un tipo concreto." },
+  { id: "rarity", name: "Radar de rareza", cost: 210000, note: "Permite buscar legendarios, miticos, raros o variocolor." },
+  { id: "species", name: "Rastreo Pokedex", cost: 420000, note: "Permite elegir un Pokemon exacto por ID de Pokedex." }
+];
 
 const LEGENDARY_IDS = new Set([
   144, 145, 146, 150, 243, 244, 245, 249, 250, 377, 378, 379, 380, 381, 382, 383, 384,
@@ -200,6 +217,13 @@ const els = {
   template: $("#collectionTemplate"),
   walkBtn: $("#walkBtn"),
   autoBattleBtn: $("#autoBattleBtn"),
+  autoBattleStatus: $("#autoBattleStatus"),
+  autoGoalSelect: $("#autoGoalSelect"),
+  autoTypeSelect: $("#autoTypeSelect"),
+  autoRaritySelect: $("#autoRaritySelect"),
+  autoPokemonInput: $("#autoPokemonInput"),
+  autoUpgradeList: $("#autoUpgradeList"),
+  autoStartBtn: $("#autoStartBtn"),
   attackBtn: $("#attackBtn"),
   ballBtn: $("#ballBtn"),
   potionBtn: $("#potionBtn"),
@@ -311,7 +335,12 @@ async function ensureStarterPokemon() {
 
 function bindEvents() {
   els.walkBtn.addEventListener("click", walk);
-  els.autoBattleBtn.addEventListener("click", autoBattle);
+  els.autoBattleBtn.addEventListener("click", openAutoBattleModal);
+  els.autoStartBtn.addEventListener("click", autoBattle);
+  [els.autoGoalSelect, els.autoTypeSelect, els.autoRaritySelect, els.autoPokemonInput].forEach((control) => {
+    control.addEventListener("change", updateAutoSettings);
+    control.addEventListener("input", updateAutoSettings);
+  });
   els.attackBtn.addEventListener("click", attack);
   els.ballBtn.addEventListener("click", openBallBag);
   els.potionBtn.addEventListener("click", openPotionBag);
@@ -730,6 +759,7 @@ function render() {
   renderCardShop();
   renderAchievements();
   renderMissions();
+  renderAutoBattle();
   els.attackBtn.disabled = !state.wild;
   els.autoBattleBtn.disabled = busy || !active;
   els.ballBtn.disabled = !state.wild || totalBalls() <= 0;
@@ -1262,14 +1292,20 @@ function useStatItem(mon, itemId) {
 
 async function autoBattle() {
   if (busy) return;
+  if (!state.autoBattle?.unlocked) {
+    openAutoBattleModal();
+    setMessage("Auto-pelea 2.0 esta bloqueado.");
+    return;
+  }
   setBusy(true);
   closeModal("resultModal");
+  closeModal("autoBattleModal");
   let rounds = 0;
   while (rounds < AUTO_BATTLE_LIMIT) {
     const active = getActive();
     if (!active) break;
     if (active.currentHp <= Math.ceil(active.maxHp * 0.42)) {
-      const healed = useBestPotion(active);
+      const healed = hasAutoUpgrade("heal") && useBestPotion(active);
       if (!healed && active.currentHp <= Math.ceil(active.maxHp * 0.25)) {
         setMessage("Auto-pelea pausada: faltan curas.");
         log("Auto-pelea pausada por falta de curas.");
@@ -1283,7 +1319,20 @@ async function autoBattle() {
       render();
       await wait(130);
     }
-    if (shouldPauseAutoBattle(state.wild)) {
+    const targetMatched = autoTargetMatches(state.wild);
+    if (targetMatched && hasAutoUpgrade("capture") && shouldAutoCapture(state.wild)) {
+      if (!bestAutoBall(state.wild, getActive())) {
+        setMessage(`Auto-pelea pausada: ${state.wild.displayName} es objetivo y no hay Balls.`);
+        log("Auto-pelea pausada por falta de Balls para capturar objetivo.");
+        break;
+      }
+      const captured = tryAutoCapture();
+      closeModal("resultModal");
+      rounds += 1;
+      await wait(120);
+      if (captured) continue;
+    }
+    if (!targetMatched && shouldPauseAutoBattle(state.wild)) {
       setMessage(`Auto-pelea pausada: aparecio ${state.wild.displayName} ${specialEncounterLabel(state.wild)}.`);
       log("Auto-pelea se detuvo por encuentro raro.");
       break;
@@ -1297,6 +1346,170 @@ async function autoBattle() {
   setBusy(false);
   render();
   save();
+}
+
+function openAutoBattleModal() {
+  renderAutoBattle();
+  openModal("autoBattleModal");
+}
+
+function updateAutoSettings() {
+  const auto = ensureAutoBattleState();
+  auto.goal = els.autoGoalSelect.value || "defeat";
+  auto.type = els.autoTypeSelect.value || "normal";
+  auto.rarity = els.autoRaritySelect.value || "legendary";
+  auto.pokemonId = clamp(Number(els.autoPokemonInput.value) || 25, 1, MAX_POKEMON_ID);
+  renderAutoBattle();
+  save();
+}
+
+function renderAutoBattle() {
+  const auto = ensureAutoBattleState();
+  if (!els.autoGoalSelect) return;
+  const goals = AUTO_GOALS.map((goal) => {
+    const disabled = goal.requires && !hasAutoUpgrade(goal.requires);
+    return `<option value="${goal.id}"${disabled ? " disabled" : ""}>${goal.name}${disabled ? " - bloqueado" : ""}</option>`;
+  }).join("");
+  if (els.autoGoalSelect.innerHTML !== goals) els.autoGoalSelect.innerHTML = goals;
+  if (!AUTO_GOALS.some((goal) => goal.id === auto.goal && (!goal.requires || hasAutoUpgrade(goal.requires)))) {
+    auto.goal = "defeat";
+  }
+  els.autoGoalSelect.value = auto.goal;
+  els.autoTypeSelect.value = auto.type || "normal";
+  els.autoRaritySelect.value = auto.rarity || "legendary";
+  els.autoPokemonInput.value = auto.pokemonId || 25;
+  els.autoTypeSelect.disabled = !hasAutoUpgrade("type");
+  els.autoRaritySelect.disabled = !hasAutoUpgrade("rarity");
+  els.autoPokemonInput.disabled = !hasAutoUpgrade("species");
+  els.autoStartBtn.disabled = busy || !auto.unlocked || !getActive();
+  els.autoBattleStatus.textContent = auto.unlocked
+    ? `Listo: ${autoGoalLabel()} en ${selectedArea().name}. Limite ${AUTO_BATTLE_LIMIT} acciones.`
+    : "Bloqueado: requiere 5000 oro.";
+  renderAutoUpgrades();
+}
+
+function renderAutoUpgrades() {
+  const auto = ensureAutoBattleState();
+  els.autoUpgradeList.innerHTML = "";
+  AUTO_UPGRADES.forEach((upgrade) => {
+    const owned = upgrade.id === "core" ? auto.unlocked : hasAutoUpgrade(upgrade.id);
+    const previousOwned = upgrade.id === "core" || previousAutoUpgradeOwned(upgrade.id);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "upgrade-card";
+    button.disabled = owned || !previousOwned || state.gold < upgrade.cost;
+    button.innerHTML = `<span>${upgrade.name}</span><strong>${owned ? "Comprado" : `${upgrade.cost} oro`}</strong><small>${upgrade.note}</small>`;
+    button.addEventListener("click", () => buyAutoUpgrade(upgrade.id));
+    els.autoUpgradeList.appendChild(button);
+  });
+}
+
+function buyAutoUpgrade(upgradeId) {
+  const auto = ensureAutoBattleState();
+  const upgrade = AUTO_UPGRADES.find((item) => item.id === upgradeId);
+  if (!upgrade) return;
+  const owned = upgrade.id === "core" ? auto.unlocked : hasAutoUpgrade(upgrade.id);
+  if (owned) return;
+  if (upgrade.id !== "core" && !previousAutoUpgradeOwned(upgrade.id)) {
+    setMessage("Compra primero la mejora anterior de Auto-pelea 2.0.");
+    return;
+  }
+  if (state.gold < upgrade.cost) {
+    setMessage(`Faltan ${upgrade.cost - state.gold} oro para ${upgrade.name}.`);
+    return;
+  }
+  state.gold -= upgrade.cost;
+  if (upgrade.id === "core") auto.unlocked = true;
+  else auto.upgrades[upgrade.id] = true;
+  log(`Compraste ${upgrade.name}. -${upgrade.cost} oro.`);
+  setMessage(`${upgrade.name} desbloqueado.`);
+  render();
+  save();
+}
+
+function previousAutoUpgradeOwned(upgradeId) {
+  const index = AUTO_UPGRADES.findIndex((upgrade) => upgrade.id === upgradeId);
+  if (index <= 0) return true;
+  const previous = AUTO_UPGRADES[index - 1];
+  return previous.id === "core" ? Boolean(state.autoBattle?.unlocked) : hasAutoUpgrade(previous.id);
+}
+
+function hasAutoUpgrade(upgradeId) {
+  return Boolean(state.autoBattle?.upgrades?.[upgradeId]);
+}
+
+function ensureAutoBattleState() {
+  state.autoBattle = {
+    unlocked: Boolean(state.autoBattle?.unlocked),
+    upgrades: { ...(state.autoBattle?.upgrades || {}) },
+    goal: state.autoBattle?.goal || "defeat",
+    type: state.autoBattle?.type || "normal",
+    rarity: state.autoBattle?.rarity || "legendary",
+    pokemonId: clamp(Number(state.autoBattle?.pokemonId) || 25, 1, MAX_POKEMON_ID)
+  };
+  return state.autoBattle;
+}
+
+function autoGoalLabel() {
+  const goal = AUTO_GOALS.find((item) => item.id === state.autoBattle?.goal);
+  if (!goal) return "derrotar";
+  if (goal.id === "type") return `buscar tipo ${title(state.autoBattle.type)}`;
+  if (goal.id === "rarity") return `buscar ${autoRarityLabel(state.autoBattle.rarity)}`;
+  if (goal.id === "species") return `buscar Pokedex #${state.autoBattle.pokemonId}`;
+  return goal.name.toLowerCase();
+}
+
+function autoRarityLabel(value) {
+  if (value === "mythical") return "miticos";
+  if (value === "legendary") return "legendarios";
+  if (value === "rare") return "legendarios o miticos";
+  if (value === "shiny") return "variocolor";
+  return "especiales";
+}
+
+function autoTargetMatches(mon) {
+  if (!mon) return false;
+  const auto = ensureAutoBattleState();
+  if (auto.goal === "capture") return shouldPauseAutoBattle(mon) || isNewPokedexSpecies(mon);
+  if (auto.goal === "money") return defeatReward(mon) >= 120 || mon.rarity !== "normal" || mon.shiny;
+  if (auto.goal === "type") return hasAutoUpgrade("type") && mon.types.includes(auto.type);
+  if (auto.goal === "rarity") {
+    if (!hasAutoUpgrade("rarity")) return false;
+    if (auto.rarity === "shiny") return mon.shiny;
+    if (auto.rarity === "rare") return mon.rarity === "legendary" || mon.rarity === "mythical";
+    return mon.rarity === auto.rarity;
+  }
+  if (auto.goal === "species") return hasAutoUpgrade("species") && mon.apiId === auto.pokemonId;
+  return false;
+}
+
+function shouldAutoCapture(mon) {
+  if (!mon) return false;
+  const goal = state.autoBattle?.goal || "defeat";
+  return ["capture", "type", "rarity", "species"].includes(goal) && autoTargetMatches(mon);
+}
+
+function tryAutoCapture() {
+  const active = getActive();
+  const wild = state.wild;
+  const ball = bestAutoBall(wild, active);
+  if (!ball) {
+    log("Auto-pelea encontro objetivo, pero no hay Balls disponibles.");
+    return false;
+  }
+  throwBall(ball.id);
+  return !state.wild;
+}
+
+function bestAutoBall(wild, active) {
+  if (!wild || !active) return null;
+  return BALLS
+    .filter((ball) => getItem(ball.id) > 0)
+    .sort((a, b) => {
+      const masterPenaltyA = a.id === "masterBall" && wild.rarity === "normal" && !wild.shiny ? -10 : 0;
+      const masterPenaltyB = b.id === "masterBall" && wild.rarity === "normal" && !wild.shiny ? -10 : 0;
+      return (captureChance(b, wild, active) + masterPenaltyB) - (captureChance(a, wild, active) + masterPenaltyA);
+    })[0] || null;
 }
 
 function useBestPotion(active) {
@@ -1581,22 +1794,30 @@ function renderAreaSelect() {
       els.areaSelect.appendChild(option);
     });
   }
-  const maxUnlocked = Math.min(CAPTURE_AREAS.length - 1, Math.floor(((active?.level || 1) + 9) / 10));
+  const activeArea = activeAreaIndex(active);
+  const minAllowed = Math.max(0, activeArea - 1);
+  const maxAllowed = Math.min(CAPTURE_AREAS.length - 1, activeArea + 1);
   [...els.areaSelect.options].forEach((option) => {
-    option.disabled = Number(option.value) > maxUnlocked;
+    const value = Number(option.value);
+    option.disabled = value < minAllowed || value > maxAllowed;
   });
-  state.areaId = Math.min(current, maxUnlocked);
+  state.areaId = clamp(current, minAllowed, maxAllowed);
   els.areaSelect.value = state.areaId;
   const area = selectedArea();
-  els.areaHint.textContent = `${area.name}: salvajes Nv. ${area.min}-${area.max}. Capturas entran en Nv. 1.`;
+  els.areaHint.textContent = `${area.name}: salvajes Nv. ${area.min}-${area.max}. Permitidas ${CAPTURE_AREAS[minAllowed].name}-${CAPTURE_AREAS[maxAllowed].name}.`;
 }
 
 function selectedArea() {
   return CAPTURE_AREAS[clamp(state.areaId || 0, 0, CAPTURE_AREAS.length - 1)];
 }
 
+function activeAreaIndex(active = getActive()) {
+  return clamp(Math.floor(((active?.level || 1) - 1) / 10), 0, CAPTURE_AREAS.length - 1);
+}
+
 function renderPokedexTypeFilter() {
   els.pokedexTypeFilter.innerHTML = `<option value="all">Todos</option>${POKEMON_TYPES.map((type) => `<option value="${type}">${title(type)}</option>`).join("")}`;
+  els.autoTypeSelect.innerHTML = POKEMON_TYPES.map((type) => `<option value="${type}">${title(type)}</option>`).join("");
 }
 
 async function renderPokedex(force = false) {
@@ -2339,6 +2560,7 @@ function baseState() {
     areaId: 0,
     syncUserId: "",
     wild: null,
+    autoBattle: defaultAutoBattle(),
     collection: [],
     items: defaultItems(),
     stats: defaultStats(),
@@ -2367,6 +2589,9 @@ function upgradeState(raw) {
   upgraded.syncUserId = raw.syncUserId || "";
   upgraded.activeMissions = raw.activeMissions || [];
   upgraded.areaId = clamp(Number(raw.areaId) || 0, 0, CAPTURE_AREAS.length - 1);
+  upgraded.autoBattle = { ...defaultAutoBattle(), ...(raw.autoBattle || {}) };
+  upgraded.autoBattle.upgrades = { ...(raw.autoBattle?.upgrades || {}) };
+  upgraded.autoBattle.pokemonId = clamp(Number(upgraded.autoBattle.pokemonId) || 25, 1, MAX_POKEMON_ID);
   return upgraded;
 }
 
@@ -2429,6 +2654,17 @@ function defaultStats() {
     potionsUsed: 0,
     shopPurchases: 0,
     centerHeals: 0
+  };
+}
+
+function defaultAutoBattle() {
+  return {
+    unlocked: false,
+    upgrades: {},
+    goal: "defeat",
+    type: "normal",
+    rarity: "legendary",
+    pokemonId: 25
   };
 }
 

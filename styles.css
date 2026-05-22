@@ -587,6 +587,7 @@ h3 {
 .shop-grid,
 .bag-grid,
 .stats-actions,
+.auto-config,
 .pokedex-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -598,7 +599,13 @@ h3 {
   margin-bottom: 12px;
 }
 
+.auto-config {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
 .pokedex-filters label,
+.auto-config label,
 .sync-form label {
   display: grid;
   gap: 5px;
@@ -611,10 +618,44 @@ h3 {
 }
 
 .sync-form label,
+.auto-config label,
 .admin-grid label {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 900;
+}
+
+.upgrade-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.upgrade-card {
+  min-height: 116px;
+  padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  text-align: left;
+}
+
+.upgrade-card span,
+.upgrade-card strong,
+.upgrade-card small {
+  display: block;
+}
+
+.upgrade-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .admin-grid {
@@ -975,6 +1016,7 @@ h3 {
   .topbar,
   .side-panel,
   .stats-profile,
+  .auto-config,
   .pokedex-filters {
     display: grid;
     grid-template-columns: 1fr;
