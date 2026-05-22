@@ -71,12 +71,12 @@ const POTIONS = [
 
 const SHOP_ITEMS = [
   { id: "rareCandy", name: "Caramelo raro", cost: 1500, note: "Sube 1 nivel al Pokemon activo.", icon: "rare-candy" },
-  { id: "hpUp", name: "Mas PS", cost: 5200, stat: "hp", boost: 0.03, maxBoost: 0.35, note: "+3% PS al Pokemon activo." },
-  { id: "protein", name: "Proteina", cost: 5600, stat: "attack", boost: 0.03, maxBoost: 0.35, note: "+3% Ataque al Pokemon activo." },
-  { id: "iron", name: "Hierro", cost: 5400, stat: "defense", boost: 0.03, maxBoost: 0.35, note: "+3% Defensa al Pokemon activo." },
-  { id: "calcium", name: "Calcio", cost: 5800, stat: "spAtk", boost: 0.03, maxBoost: 0.35, note: "+3% At. esp. al Pokemon activo." },
-  { id: "zinc", name: "Zinc", cost: 5400, stat: "spDef", boost: 0.03, maxBoost: 0.35, note: "+3% Def. esp. al Pokemon activo." },
-  { id: "carbos", name: "Carburante", cost: 5600, stat: "speed", boost: 0.03, maxBoost: 0.35, note: "+3% Velocidad al Pokemon activo." }
+  { id: "hpUp", name: "Mas PS", cost: 5200, stat: "hp", boost: 0.06, note: "+6% PS al Pokemon activo. Sin limite." },
+  { id: "protein", name: "Proteina", cost: 5600, stat: "attack", boost: 0.06, note: "+6% Ataque al Pokemon activo. Sin limite." },
+  { id: "iron", name: "Hierro", cost: 5400, stat: "defense", boost: 0.06, note: "+6% Defensa al Pokemon activo. Sin limite." },
+  { id: "calcium", name: "Calcio", cost: 5800, stat: "spAtk", boost: 0.06, note: "+6% At. esp. al Pokemon activo. Sin limite." },
+  { id: "zinc", name: "Zinc", cost: 5400, stat: "spDef", boost: 0.06, note: "+6% Def. esp. al Pokemon activo. Sin limite." },
+  { id: "carbos", name: "Carburante", cost: 5600, stat: "speed", boost: 0.06, note: "+6% Velocidad al Pokemon activo. Sin limite." }
 ];
 
 const CARD_ITEMS = [
@@ -1106,13 +1106,11 @@ function useRareCandy(mon) {
 function vitaminButtons(mon) {
   return SHOP_ITEMS.filter((item) => item.stat).map((item) => {
     const owned = getItem(item.id);
-    const current = Number(mon.statBonus?.[item.stat]) || 0;
-    const capped = current >= item.maxBoost;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = `${item.name} x${owned}`;
-    button.disabled = owned <= 0 || mon.uid !== state.activeId || capped;
-    button.title = capped ? `${STAT_LABELS[item.stat]} ya esta al maximo de entrenamiento.` : item.note;
+    button.disabled = owned <= 0 || mon.uid !== state.activeId;
+    button.title = item.note;
     button.addEventListener("click", () => {
       useStatItem(mon, item.id);
       showPokemonStats(mon, "capturado");
@@ -1126,15 +1124,22 @@ function useStatItem(mon, itemId) {
   if (!item || !mon || mon.uid !== state.activeId || getItem(item.id) <= 0) return;
   mon.statBonus = mon.statBonus || {};
   const current = Number(mon.statBonus[item.stat]) || 0;
-  if (current >= item.maxBoost) return;
   const hpRatio = mon.currentHp / mon.maxHp;
-  mon.statBonus[item.stat] = clamp(current + item.boost, -0.1, item.maxBoost);
+  const before = mon.stats[item.stat];
+  let nextBonus = current + item.boost;
+  let nextStats = scaleStats(mon.baseStats, mon.level, mon.rarity, { ...mon.statBonus, [item.stat]: nextBonus });
+  while (nextStats[item.stat] <= before) {
+    nextBonus += 0.01;
+    nextStats = scaleStats(mon.baseStats, mon.level, mon.rarity, { ...mon.statBonus, [item.stat]: nextBonus });
+  }
+  mon.statBonus[item.stat] = nextBonus;
   mon.stats = scaleStats(mon.baseStats, mon.level, mon.rarity, mon.statBonus);
   mon.maxHp = mon.stats.hp;
   mon.currentHp = clamp(Math.ceil(mon.maxHp * hpRatio), 1, mon.maxHp);
   addItem(item.id, -1);
-  log(`${mon.displayName} uso ${item.name}. ${STAT_LABELS[item.stat]} mejoro.`);
-  setMessage(`${STAT_LABELS[item.stat]} de ${mon.displayName} subio.`);
+  const after = mon.stats[item.stat];
+  log(`${mon.displayName} uso ${item.name}. ${STAT_LABELS[item.stat]} ${before} -> ${after}.`);
+  setMessage(`${STAT_LABELS[item.stat]} de ${mon.displayName}: ${before} -> ${after}.`);
   render();
   save();
 }
