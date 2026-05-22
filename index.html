@@ -21,6 +21,12 @@
           </div>
         </header>
 
+        <div class="route-toolbar" aria-label="Area de captura">
+          <label for="areaSelect">Area</label>
+          <select id="areaSelect"></select>
+          <span id="areaHint">Nv. 1-10</span>
+        </div>
+
         <div class="scene">
           <div class="battlefield">
             <div class="battle-slot wild-slot" id="wildSlot">
@@ -59,6 +65,7 @@
 
         <div class="action-grid" aria-label="Acciones">
           <button id="walkBtn" class="primary-action" type="button">Caminar</button>
+          <button id="autoBattleBtn" type="button">Auto-pelea</button>
           <button id="attackBtn" type="button">Atacar</button>
           <button id="ballBtn" type="button">Mochila Ball</button>
           <button id="potionBtn" type="button">Mochila Cura</button>
@@ -66,11 +73,13 @@
 
         <nav class="menu-grid" aria-label="Menu">
           <button id="collectionBtn" type="button">Coleccion</button>
+          <button id="pokedexBtn" type="button">Pokedex</button>
           <button id="shopBtn" type="button">Tienda</button>
           <button id="centerBtn" type="button">Centro Pokemon</button>
           <button id="achievementsBtn" type="button">Logros</button>
           <button id="missionsBtn" type="button">Misiones</button>
           <button id="logBtn" type="button">Bitacora</button>
+          <button id="adminBtn" class="hidden" type="button">Admin</button>
         </nav>
       </section>
 
@@ -105,6 +114,27 @@
       </div>
     </div>
 
+    <div class="modal hidden" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+      <div class="dialog account-dialog">
+        <h2 id="accountTitle">PokeRastro</h2>
+        <div class="sync-form">
+          <label>
+            Usuario
+            <input id="accountUserId" type="text" autocomplete="username" placeholder="jugador-001">
+          </label>
+          <label>
+            Clave
+            <input id="accountPassword" type="password" autocomplete="current-password" placeholder="minimo 4 caracteres">
+          </label>
+        </div>
+        <p class="modal-subtitle" id="accountStatus">Crea una cuenta o inicia sesion para cargar tu partida.</p>
+        <div class="stats-actions">
+          <button id="loginBtn" class="primary-action" type="button">Entrar</button>
+          <button id="createAccountBtn" type="button">Crear cuenta</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal hidden" id="shopModal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
       <div class="dialog wide-dialog">
         <div class="modal-head">
@@ -116,6 +146,8 @@
         <div class="shop-grid" id="ballShopList"></div>
         <h3>Pociones</h3>
         <div class="shop-grid" id="potionShopList"></div>
+        <h3>Objetos</h3>
+        <div class="shop-grid" id="itemShopList"></div>
       </div>
     </div>
 
@@ -151,6 +183,36 @@
           </div>
         </div>
         <div id="collectionList" class="collection-list"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="pokedexModal" role="dialog" aria-modal="true" aria-labelledby="pokedexTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="pokedexTitle">Pokedex</h2>
+          <button class="close-modal" data-close="pokedexModal" type="button">Cerrar</button>
+        </div>
+        <div class="pokedex-filters">
+          <label>
+            ID
+            <input id="pokedexIdSearch" type="number" min="1" max="1025" placeholder="25">
+          </label>
+          <label>
+            Tipo
+            <select id="pokedexTypeFilter"></select>
+          </label>
+          <label>
+            Rareza
+            <select id="pokedexRarityFilter">
+              <option value="all">Todos</option>
+              <option value="normal">Normales</option>
+              <option value="legendary">Legendarios</option>
+              <option value="mythical">Miticos</option>
+            </select>
+          </label>
+        </div>
+        <p class="modal-subtitle" id="pokedexSummary">0 capturados</p>
+        <div id="pokedexList" class="pokedex-list"></div>
       </div>
     </div>
 
@@ -226,6 +288,45 @@
       </div>
     </div>
 
+    <div class="modal hidden" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <div class="dialog wide-dialog">
+        <div class="modal-head">
+          <h2 id="adminTitle">Admin</h2>
+          <button class="close-modal" data-close="adminModal" type="button">Cerrar</button>
+        </div>
+        <div class="admin-grid">
+          <label>
+            Usuario
+            <input id="adminUserSearch" type="text" placeholder="jugador-001">
+          </label>
+          <button id="adminSearchBtn" class="primary-action" type="button">Buscar</button>
+        </div>
+        <div id="adminUserSummary" class="admin-summary"></div>
+        <div class="admin-grid">
+          <label>
+            Oro
+            <input id="adminGrantGold" type="number" min="0" value="0">
+          </label>
+          <label>
+            Master Ball
+            <input id="adminGrantMasterBall" type="number" min="0" value="0">
+          </label>
+          <label>
+            Ultra Ball
+            <input id="adminGrantUltraBall" type="number" min="0" value="0">
+          </label>
+          <label>
+            Caramelo raro
+            <input id="adminGrantRareCandy" type="number" min="0" value="0">
+          </label>
+        </div>
+        <p class="modal-subtitle" id="adminStatus">Busca un usuario para enviarle un regalo.</p>
+        <div class="stats-actions">
+          <button id="adminGrantBtn" class="primary-action" type="button">Enviar regalo</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal hidden" id="centerModal" role="dialog" aria-modal="true" aria-labelledby="centerTitle">
       <div class="dialog center-dialog">
         <h2 id="centerTitle">Centro Pokemon</h2>
@@ -250,6 +351,10 @@
       </article>
     </template>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

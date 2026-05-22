@@ -47,6 +47,18 @@ button:disabled {
   opacity: 0.48;
 }
 
+select,
+input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(5, 12, 18, 0.84);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+}
+
 h1,
 h2,
 h3,
@@ -100,7 +112,8 @@ h3 {
 .modal-head,
 .head-actions,
 .hud-line,
-.level-line {
+.level-line,
+.route-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -141,6 +154,32 @@ h3 {
   border-radius: 8px;
   overflow: hidden;
   background: url("img/fondo de combate.jpg") center / cover no-repeat;
+}
+
+.route-toolbar {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.route-toolbar label,
+.pokedex-filters label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.route-toolbar select {
+  min-width: 210px;
+}
+
+#areaHint {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .battlefield {
@@ -289,11 +328,11 @@ h3 {
 }
 
 .action-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .menu-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
 .primary-action {
@@ -367,9 +406,17 @@ h3 {
   display: none;
 }
 
+.hidden {
+  display: none !important;
+}
+
 #resultModal,
 #centerModal {
   z-index: 30;
+}
+
+#accountModal {
+  z-index: 40;
 }
 
 .dialog,
@@ -391,6 +438,10 @@ h3 {
 
 .result-dialog {
   width: min(640px, 100%);
+}
+
+.account-dialog {
+  width: min(460px, 100%);
 }
 
 #resultModal.danger-result .dialog {
@@ -426,10 +477,115 @@ h3 {
 
 .shop-grid,
 .bag-grid,
-.stats-actions {
+.stats-actions,
+.pokedex-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.pokedex-filters {
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-bottom: 12px;
+}
+
+.pokedex-filters label,
+.sync-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.sync-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sync-form label,
+.admin-grid label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-grid label {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.admin-summary span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-summary strong {
+  display: block;
+  color: var(--ink);
+}
+
+.pokedex-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 10px;
+  max-height: 560px;
+  overflow: auto;
+}
+
+.pokedex-entry {
+  min-height: 178px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.pokedex-entry img {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.pokedex-entry.missing img {
+  filter: brightness(0);
+  opacity: 0.82;
+}
+
+.pokedex-entry strong,
+.pokedex-entry small,
+.pokedex-entry span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.pokedex-entry small,
+.pokedex-entry span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .shop-grid button,
@@ -652,6 +808,23 @@ h3 {
   font-size: 1rem;
 }
 
+.mini-stats em {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.mini-stats .stat-up {
+  color: var(--green);
+}
+
+.mini-stats .stat-down {
+  color: var(--red);
+}
+
 @keyframes hit {
   0%, 100% { translate: 0 0; }
   30% { translate: -12px 0; }
@@ -692,7 +865,8 @@ h3 {
 
   .topbar,
   .side-panel,
-  .stats-profile {
+  .stats-profile,
+  .pokedex-filters {
     display: grid;
     grid-template-columns: 1fr;
   }
@@ -707,17 +881,49 @@ h3 {
 
   .scene,
   .battlefield {
-    min-height: 500px;
+    min-height: 560px;
+  }
+
+  .battle-slot {
+    width: calc(100% - 24px);
+    grid-template-columns: minmax(0, 240px) auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
 
   .wild-slot {
-    top: 7%;
-    right: 3%;
+    top: 10%;
+    left: 12px;
+    right: auto;
+    transform: none;
+  }
+
+  .wild-field-sprite {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .wild-hud {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .ally-slot {
-    left: 3%;
-    bottom: 14%;
+    left: 12px;
+    bottom: 18%;
+    transform: none;
+    grid-template-columns: auto minmax(0, 240px);
+  }
+
+  .ally-field-sprite {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .ally-hud {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .field-sprite,
@@ -727,14 +933,15 @@ h3 {
   }
 
   .battle-hud {
-    width: min(250px, 88vw);
+    width: 100%;
   }
 
   .action-grid,
   .menu-grid,
   .shop-grid,
   .bag-grid,
-  .stats-actions {
+  .stats-actions,
+  .admin-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -749,6 +956,7 @@ h3 {
   .shop-grid,
   .bag-grid,
   .stats-actions,
+  .admin-grid,
   .mini-stats,
   .side-panel {
     grid-template-columns: 1fr;
@@ -762,5 +970,46 @@ h3 {
     left: 10px;
     right: 10px;
     bottom: 10px;
+  }
+
+  .scene,
+  .battlefield {
+    min-height: 500px;
+  }
+
+  .wild-slot {
+    top: 10%;
+  }
+
+  .ally-slot {
+    bottom: 20%;
+  }
+
+  .battle-slot {
+    width: calc(100% - 20px);
+    left: 10px;
+    gap: 6px;
+  }
+
+  .wild-slot {
+    grid-template-columns: minmax(0, 214px) auto;
+  }
+
+  .ally-slot {
+    grid-template-columns: auto minmax(0, 214px);
+  }
+
+  .field-sprite,
+  .wild-field-sprite {
+    width: 118px;
+    min-height: 100px;
+  }
+
+  .battle-hud {
+    padding: 9px;
+  }
+
+  .battle-hud p {
+    font-size: 0.76rem;
   }
 }

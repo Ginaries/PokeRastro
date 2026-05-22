@@ -1,9 +1,20 @@
 const API_ROOT = "https://pokeapi.co/api/v2";
 const MAX_POKEMON_ID = 1025;
 const SHINY_RATE = 1 / 90;
-const MAX_LEVEL = 100;
+const MAX_LEVEL = 1000;
 const SAVE_KEY = "pokerastro-save-v3";
+const SESSION_KEY = "pokerastro-session";
 const OLD_SAVE_KEYS = ["pokerastro-save-v2", "pokerastro-save-v1"];
+const AUTO_BATTLE_LIMIT = 80;
+const POKEMON_TYPES = [
+  "normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
+  "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"
+];
+const CAPTURE_AREAS = Array.from({ length: MAX_LEVEL / 10 }, (_, index) => {
+  const min = index * 10 + 1;
+  return { id: index, name: `Area ${index + 1}`, min, max: min + 9 };
+});
+const typeIdCache = new Map();
 
 const LEGENDARY_IDS = new Set([
   144, 145, 146, 150, 243, 244, 245, 249, 250, 377, 378, 379, 380, 381, 382, 383, 384,
@@ -15,34 +26,35 @@ const MYTHICAL_IDS = new Set([
   151, 251, 385, 386, 489, 490, 491, 492, 493, 494, 647, 648, 649, 719, 720, 721, 801,
   802, 807, 808, 809, 893, 1009, 1010, 1025
 ]);
+const PSEUDO_LEGENDARY_IDS = new Set([149, 248, 373, 376, 445, 635, 706, 784, 887, 998]);
 
 const BALLS = [
-  { id: "pokeBall", name: "Poke Ball", cost: 40, mod: 1, note: "Basica y barata." },
-  { id: "greatBall", name: "Great Ball", cost: 95, mod: 1.55, note: "Mejor rate general." },
-  { id: "ultraBall", name: "Ultra Ball", cost: 190, mod: 2.25, note: "Fuerte contra casi todo." },
-  { id: "masterBall", name: "Master Ball", cost: 5000, mod: 999, note: "Captura garantizada." },
-  { id: "premierBall", name: "Premier Ball", cost: 60, mod: 1.15, note: "Ligero bonus elegante." },
-  { id: "healBall", name: "Heal Ball", cost: 70, mod: 1.1, note: "Captura y cura al nuevo." },
-  { id: "netBall", name: "Net Ball", cost: 150, mod: 1, note: "Mejor contra agua o bicho." },
-  { id: "nestBall", name: "Nest Ball", cost: 135, mod: 1, note: "Mejor contra niveles bajos." },
-  { id: "repeatBall", name: "Repeat Ball", cost: 165, mod: 1, note: "Mejor si ya lo tenias." },
-  { id: "timerBall", name: "Timer Ball", cost: 180, mod: 1, note: "Sube con turnos." },
-  { id: "quickBall", name: "Quick Ball", cost: 210, mod: 1, note: "Muy fuerte al inicio." },
-  { id: "duskBall", name: "Dusk Ball", cost: 170, mod: 2.05, note: "Buena en esta ruta boscosa." },
-  { id: "diveBall", name: "Dive Ball", cost: 150, mod: 1, note: "Mejor contra agua." },
-  { id: "luxuryBall", name: "Luxury Ball", cost: 220, mod: 1.25, note: "Mas oro al capturar." },
-  { id: "levelBall", name: "Level Ball", cost: 190, mod: 1, note: "Escala si le superas nivel." },
-  { id: "lureBall", name: "Lure Ball", cost: 160, mod: 1, note: "Mejor contra agua." },
-  { id: "moonBall", name: "Moon Ball", cost: 180, mod: 1.75, note: "Buen bonus mistico." },
-  { id: "friendBall", name: "Friend Ball", cost: 170, mod: 1.2, note: "Buen trato al capturado." },
-  { id: "loveBall", name: "Love Ball", cost: 170, mod: 1.55, note: "Bonus estable." },
-  { id: "heavyBall", name: "Heavy Ball", cost: 190, mod: 1, note: "Mejor contra pesos pesados." },
-  { id: "fastBall", name: "Fast Ball", cost: 180, mod: 1, note: "Mejor contra veloces." },
-  { id: "dreamBall", name: "Dream Ball", cost: 240, mod: 2.35, note: "Muy buena contra raros." },
-  { id: "beastBall", name: "Beast Ball", cost: 300, mod: 1.05, note: "Dificil, pero sube contra legendarios." },
-  { id: "safariBall", name: "Safari Ball", cost: 130, mod: 1.5, note: "Solida para la ruta." },
-  { id: "sportBall", name: "Sport Ball", cost: 150, mod: 1.5, note: "Mejor contra bicho." },
-  { id: "cherishBall", name: "Cherish Ball", cost: 650, mod: 2.8, note: "Cara y potente." }
+  { id: "pokeBall", name: "Poke Ball", cost: 45, mod: 0.75, note: "Basica, mejor en salvajes comunes." },
+  { id: "greatBall", name: "Great Ball", cost: 200, mod: 1.15, note: "Mejora general confiable." },
+  { id: "ultraBall", name: "Ultra Ball", cost: 500, mod: 1.75, note: "Fuerte contra casi todo." },
+  { id: "masterBall", name: "Master Ball", cost: 7500, mod: 999, note: "Captura garantizada." },
+  { id: "premierBall", name: "Premier Ball", cost: 70, mod: 0.9, note: "Ligero bonus elegante." },
+  { id: "healBall", name: "Heal Ball", cost: 85, mod: 0.95, note: "Captura y cura al nuevo." },
+  { id: "netBall", name: "Net Ball", cost: 190, mod: 0.9, note: "Muy buena contra agua o bicho." },
+  { id: "nestBall", name: "Nest Ball", cost: 175, mod: 0.85, note: "Mejor contra niveles bajos." },
+  { id: "repeatBall", name: "Repeat Ball", cost: 210, mod: 0.9, note: "Mejor si ya lo tenias." },
+  { id: "timerBall", name: "Timer Ball", cost: 230, mod: 0.85, note: "Sube con turnos." },
+  { id: "quickBall", name: "Quick Ball", cost: 310, mod: 0.85, note: "Muy fuerte al inicio." },
+  { id: "duskBall", name: "Dusk Ball", cost: 240, mod: 1.65, note: "Buena en esta ruta boscosa." },
+  { id: "diveBall", name: "Dive Ball", cost: 190, mod: 0.9, note: "Muy buena contra agua." },
+  { id: "luxuryBall", name: "Luxury Ball", cost: 320, mod: 1.05, note: "Mas oro al capturar." },
+  { id: "levelBall", name: "Level Ball", cost: 260, mod: 0.85, note: "Escala si le superas nivel." },
+  { id: "lureBall", name: "Lure Ball", cost: 205, mod: 0.9, note: "Muy buena contra agua." },
+  { id: "moonBall", name: "Moon Ball", cost: 260, mod: 1.35, note: "Buen bonus mistico." },
+  { id: "friendBall", name: "Friend Ball", cost: 210, mod: 1.0, note: "Buen trato al capturado." },
+  { id: "loveBall", name: "Love Ball", cost: 220, mod: 1.25, note: "Bonus estable." },
+  { id: "heavyBall", name: "Heavy Ball", cost: 250, mod: 0.85, note: "Mejor contra pesos pesados." },
+  { id: "fastBall", name: "Fast Ball", cost: 245, mod: 0.85, note: "Mejor contra veloces." },
+  { id: "dreamBall", name: "Dream Ball", cost: 420, mod: 1.8, note: "Muy buena contra raros." },
+  { id: "beastBall", name: "Beast Ball", cost: 520, mod: 0.65, note: "Dificil, pero sube contra raros." },
+  { id: "safariBall", name: "Safari Ball", cost: 170, mod: 1.1, note: "Solida para la ruta." },
+  { id: "sportBall", name: "Sport Ball", cost: 195, mod: 1.1, note: "Mejor contra bicho." },
+  { id: "cherishBall", name: "Cherish Ball", cost: 1100, mod: 2.35, note: "Cara y potente." }
 ];
 
 const POTIONS = [
@@ -55,6 +67,10 @@ const POTIONS = [
   { id: "sodaPop", name: "Refresco", cost: 120, heal: 60, note: "Cura 60 PS." },
   { id: "lemonade", name: "Limonada", cost: 160, heal: 80, note: "Cura 80 PS." },
   { id: "moomooMilk", name: "Leche Mumu", cost: 210, heal: 100, note: "Cura 100 PS." }
+];
+
+const SHOP_ITEMS = [
+  { id: "rareCandy", name: "Caramelo raro", cost: 1500, note: "Sube 1 nivel al Pokemon activo.", icon: "rare-candy" }
 ];
 
 const ITEM_SLUGS = {
@@ -92,7 +108,8 @@ const ITEM_SLUGS = {
   freshWater: "fresh-water",
   sodaPop: "soda-pop",
   lemonade: "lemonade",
-  moomooMilk: "moomoo-milk"
+  moomooMilk: "moomoo-milk",
+  rareCandy: "rare-candy"
 };
 
 const ACHIEVEMENTS = [
@@ -151,13 +168,17 @@ const els = {
   activeLevel: $("#activeLevel"),
   activeXp: $("#activeXp"),
   battleLog: $("#battleLog"),
+  areaSelect: $("#areaSelect"),
+  areaHint: $("#areaHint"),
   collectionList: $("#collectionList"),
   template: $("#collectionTemplate"),
   walkBtn: $("#walkBtn"),
+  autoBattleBtn: $("#autoBattleBtn"),
   attackBtn: $("#attackBtn"),
   ballBtn: $("#ballBtn"),
   potionBtn: $("#potionBtn"),
   collectionBtn: $("#collectionBtn"),
+  pokedexBtn: $("#pokedexBtn"),
   shopBtn: $("#shopBtn"),
   centerBtn: $("#centerBtn"),
   achievementsBtn: $("#achievementsBtn"),
@@ -166,8 +187,14 @@ const els = {
   sortBtn: $("#sortBtn"),
   ballShopList: $("#ballShopList"),
   potionShopList: $("#potionShopList"),
+  itemShopList: $("#itemShopList"),
   ballBagList: $("#ballBagList"),
   potionBagList: $("#potionBagList"),
+  pokedexIdSearch: $("#pokedexIdSearch"),
+  pokedexTypeFilter: $("#pokedexTypeFilter"),
+  pokedexRarityFilter: $("#pokedexRarityFilter"),
+  pokedexSummary: $("#pokedexSummary"),
+  pokedexList: $("#pokedexList"),
   capturePreview: $("#capturePreview"),
   healPreview: $("#healPreview"),
   statsKind: $("#statsKind"),
@@ -188,16 +215,38 @@ const els = {
   resultCenterBtn: $("#resultCenterBtn"),
   resultCloseBtn: $("#resultCloseBtn"),
   achievementList: $("#achievementList"),
-  missionList: $("#missionList")
+  missionList: $("#missionList"),
+  adminBtn: $("#adminBtn"),
+  adminUserSearch: $("#adminUserSearch"),
+  adminSearchBtn: $("#adminSearchBtn"),
+  adminUserSummary: $("#adminUserSummary"),
+  adminGrantGold: $("#adminGrantGold"),
+  adminGrantMasterBall: $("#adminGrantMasterBall"),
+  adminGrantUltraBall: $("#adminGrantUltraBall"),
+  adminGrantRareCandy: $("#adminGrantRareCandy"),
+  adminGrantBtn: $("#adminGrantBtn"),
+  adminStatus: $("#adminStatus"),
+  accountUserId: $("#accountUserId"),
+  accountPassword: $("#accountPassword"),
+  accountStatus: $("#accountStatus"),
+  loginBtn: $("#loginBtn"),
+  createAccountBtn: $("#createAccountBtn"),
 };
 
 const state = upgradeState(loadState());
 let busy = false;
+let cloud = null;
+let cloudSaveTimer = null;
+let suppressCloudSave = false;
+let currentAdminTarget = null;
 
 boot();
 
 async function boot() {
+  initCloud();
   bindEvents();
+  renderAreaSelect();
+  renderPokedexTypeFilter();
   renderShop();
   if (!state.collection.length) {
     const starter = await fetchPokemon([1, 4, 7, 25][randomInt(0, 3)]);
@@ -209,10 +258,12 @@ async function boot() {
   ensureActiveMissions();
   render();
   save();
+  openAccountModalIfNeeded();
 }
 
 function bindEvents() {
   els.walkBtn.addEventListener("click", walk);
+  els.autoBattleBtn.addEventListener("click", autoBattle);
   els.attackBtn.addEventListener("click", attack);
   els.ballBtn.addEventListener("click", openBallBag);
   els.potionBtn.addEventListener("click", openPotionBag);
@@ -221,7 +272,22 @@ function bindEvents() {
   els.fieldWildSprite.addEventListener("click", () => showPokemonStats(state.wild, "salvaje"));
   els.fieldWildName.addEventListener("click", () => showPokemonStats(state.wild, "salvaje"));
   els.collectionBtn.addEventListener("click", () => openModal("collectionModal"));
+  els.pokedexBtn.addEventListener("click", () => {
+    openModal("pokedexModal");
+    renderPokedex(true);
+  });
   els.shopBtn.addEventListener("click", () => openModal("shopModal"));
+  els.areaSelect.addEventListener("change", () => {
+    state.areaId = Number(els.areaSelect.value) || 0;
+    state.wild = null;
+    setMessage(`${selectedArea().name}: encuentros Nv. ${selectedArea().min}-${selectedArea().max}.`);
+    render();
+    save();
+  });
+  [els.pokedexIdSearch, els.pokedexTypeFilter, els.pokedexRarityFilter].forEach((control) => {
+    control.addEventListener("input", () => renderPokedex(true));
+    control.addEventListener("change", () => renderPokedex(true));
+  });
   els.centerBtn.addEventListener("click", openCenterForManualHeal);
   els.achievementsBtn.addEventListener("click", () => {
     renderAchievements();
@@ -232,6 +298,11 @@ function bindEvents() {
     openModal("missionsModal");
   });
   els.logBtn.addEventListener("click", () => openModal("logModal"));
+  els.adminBtn.addEventListener("click", openAdminModal);
+  els.adminSearchBtn.addEventListener("click", adminSearchUser);
+  els.adminGrantBtn.addEventListener("click", adminSendGrant);
+  els.loginBtn.addEventListener("click", loginAccount);
+  els.createAccountBtn.addEventListener("click", createAccount);
   els.centerHealBtn.addEventListener("click", healTeamAtCenter);
   els.resultCenterBtn.addEventListener("click", () => {
     closeModal("resultModal");
@@ -247,7 +318,7 @@ function bindEvents() {
   });
   document.querySelectorAll(".modal").forEach((modal) => {
     modal.addEventListener("click", (event) => {
-      if (event.target === modal && modal.id !== "walkModal") closeModal(modal.id);
+      if (event.target === modal && !["walkModal", "accountModal"].includes(modal.id)) closeModal(modal.id);
     });
   });
 }
@@ -277,10 +348,9 @@ async function walk() {
 async function spawnWild() {
   const pick = pickEncounterId();
   const data = await fetchPokemon(pick.id);
-  const active = getActive();
-  const spread = Math.max(4, Math.floor((active?.level || 5) * 0.22));
-  const levelBoost = pick.rarity === "legendary" ? randomInt(3, 8) : pick.rarity === "mythical" ? randomInt(6, 12) : 0;
-  const level = clamp((active?.level || 5) + randomInt(-spread, spread + 3) + levelBoost, 2, MAX_LEVEL);
+  const area = selectedArea();
+  const levelBoost = pick.rarity === "legendary" ? randomInt(1, 4) : pick.rarity === "mythical" ? randomInt(2, 6) : 0;
+  const level = clamp(randomInt(area.min, area.max) + levelBoost, 1, MAX_LEVEL);
   state.wild = createBattlePokemon(data, level, Math.random() < SHINY_RATE, pick.rarity);
   state.wild.turns = 1;
   if (!state.wild.sprite) state.wild.sprite = spriteUrl(state.wild.apiId);
@@ -413,13 +483,22 @@ function usePotion(itemId) {
 
 function captureWild(ball) {
   const wild = state.wild;
-  const owned = { ...wild, xp: 0, currentHp: wild.maxHp };
+  const owned = {
+    ...wild,
+    uid: uid(),
+    level: 1,
+    xp: 0,
+    stats: scaleStats(wild.baseStats, 1, wild.rarity, wild.statBonus),
+    turns: 1
+  };
+  owned.maxHp = owned.stats.hp;
+  owned.currentHp = owned.maxHp;
   if (ball.id === "healBall" || ball.id === "friendBall") owned.currentHp = owned.maxHp;
   const duplicate = findWeakestDuplicate(owned);
-  const goldReward = captureReward(owned, ball);
+  const goldReward = captureReward(wild, ball);
   const rewards = [
     { label: "Oro", value: `+${goldReward}` },
-    { label: "Captura", value: `${owned.displayName} Nv. ${owned.level}` }
+    { label: "Captura", value: `${owned.displayName} Nv. 1` }
   ];
   state.collection.push(owned);
   state.caught += 1;
@@ -441,7 +520,7 @@ function captureWild(ball) {
     releaseById(duplicate.uid, false);
     state.gold += 35;
     rewards.push({ label: "Duplicado liberado", value: "+35 oro" });
-    log(`Liberaste al duplicado mas debil de ${owned.displayName}. +35 oro`);
+    log(`Liberaste al duplicado mas debil de ${owned.displayName} (${owned.shiny ? "variocolor" : "normal"}). +35 oro`);
   }
   setMessage(`${owned.displayName} fue capturado.`);
   state.wild = null;
@@ -458,7 +537,7 @@ function captureWild(ball) {
 function defeatWild() {
   const wild = state.wild;
   const active = getActive();
-  const gold = 20 + wild.level * 3 + (wild.shiny ? 180 : 0) + (wild.rarity === "legendary" ? 260 : wild.rarity === "mythical" ? 420 : 0);
+  const gold = defeatReward(wild);
   const xp = 18 + wild.level * 4 + (wild.shiny ? 120 : 0) + (wild.rarity !== "normal" ? 160 : 0);
   state.gold += gold;
   state.stats.defeats += 1;
@@ -560,7 +639,7 @@ function buyItem(itemId, cost, name) {
 
 function render() {
   const active = getActive();
-  const inventoryText = `${totalBalls()} Balls - ${totalHealingItems()} curas`;
+  const inventoryText = `${totalBalls()} Balls - ${totalHealingItems()} curas - ${getItem("rareCandy")} caramelos`;
   els.gold.textContent = state.gold;
   els.steps.textContent = state.steps;
   els.caughtCount.textContent = state.caught;
@@ -568,13 +647,16 @@ function render() {
   els.shopInventory.textContent = inventoryText;
   renderActive(active);
   renderWild();
+  renderAreaSelect();
   renderCollection();
+  renderPokedex();
   renderLog();
   renderPotionBag();
   renderBallBag();
   renderAchievements();
   renderMissions();
   els.attackBtn.disabled = !state.wild;
+  els.autoBattleBtn.disabled = busy || !active;
   els.ballBtn.disabled = !state.wild || totalBalls() <= 0;
   els.potionBtn.disabled = !active || active.currentHp >= active.maxHp || totalHealingItems() <= 0;
 }
@@ -624,8 +706,10 @@ function renderWild() {
 function renderShop() {
   els.ballShopList.innerHTML = "";
   els.potionShopList.innerHTML = "";
+  els.itemShopList.innerHTML = "";
   BALLS.forEach((ball) => els.ballShopList.appendChild(shopButton(ball)));
   POTIONS.forEach((potion) => els.potionShopList.appendChild(shopButton(potion)));
+  SHOP_ITEMS.forEach((item) => els.itemShopList.appendChild(shopButton(item)));
 }
 
 function shopButton(item) {
@@ -877,7 +961,7 @@ async function showPokemonStats(mon, kind) {
   els.statsSprite.src = mon.shiny ? mon.shinySprite : mon.sprite;
   els.statsSprite.onerror = () => setFallbackSprite(els.statsSprite, mon);
   els.statsSprite.alt = mon.displayName;
-  els.statsGrid.innerHTML = statMarkup(mon.stats);
+  els.statsGrid.innerHTML = statMarkupForPokemon(mon);
   els.statsActions.innerHTML = "";
 
   if (kind !== "salvaje") {
@@ -903,53 +987,242 @@ async function showPokemonStats(mon, kind) {
       releaseById(mon.uid);
       closeModal("statsModal");
     });
-    els.statsActions.append(activate, release);
+
+    const candy = document.createElement("button");
+    candy.type = "button";
+    candy.textContent = `Caramelo raro x${getItem("rareCandy")}`;
+    candy.disabled = getItem("rareCandy") <= 0 || mon.level >= MAX_LEVEL || mon.uid !== state.activeId;
+    candy.addEventListener("click", () => {
+      useRareCandy(mon);
+      showPokemonStats(mon, kind);
+    });
+
+    const evolution = await evolutionButton(mon);
+    els.statsActions.append(activate, candy);
+    els.statsActions.appendChild(evolution);
+    els.statsActions.appendChild(release);
   }
   openModal("statsModal");
+}
+
+function useRareCandy(mon) {
+  if (!mon || mon.uid !== state.activeId || getItem("rareCandy") <= 0 || mon.level >= MAX_LEVEL) return;
+  addItem("rareCandy", -1);
+  const before = mon.level;
+  mon.level += 1;
+  mon.xp = 0;
+  mon.stats = scaleStats(mon.baseStats, mon.level, mon.rarity, mon.statBonus);
+  mon.maxHp = mon.stats.hp;
+  mon.currentHp = mon.maxHp;
+  log(`${mon.displayName} subio de Nv. ${before} a Nv. ${mon.level} con Caramelo raro.`);
+  setMessage(`${mon.displayName} subio a Nv. ${mon.level}.`);
+  render();
+  save();
+}
+
+async function autoBattle() {
+  if (busy) return;
+  setBusy(true);
+  closeModal("resultModal");
+  let rounds = 0;
+  while (rounds < AUTO_BATTLE_LIMIT) {
+    const active = getActive();
+    if (!active) break;
+    if (active.currentHp <= Math.ceil(active.maxHp * 0.42)) {
+      const healed = useBestPotion(active);
+      if (!healed && active.currentHp <= Math.ceil(active.maxHp * 0.25)) {
+        setMessage("Auto-pelea pausada: faltan curas.");
+        log("Auto-pelea pausada por falta de curas.");
+        break;
+      }
+    }
+    if (!state.wild) {
+      state.steps += 1;
+      state.gold += 4 + Math.floor(Math.random() * 6);
+      await spawnWild();
+      render();
+      await wait(130);
+    }
+    if (shouldPauseAutoBattle(state.wild)) {
+      setMessage(`Auto-pelea pausada: aparecio ${state.wild.displayName} ${specialEncounterLabel(state.wild)}.`);
+      log("Auto-pelea se detuvo por encuentro raro.");
+      break;
+    }
+    attack();
+    closeModal("resultModal");
+    rounds += 1;
+    if (!state.wild) await wait(120);
+    if (!getActive() || getActive().currentHp <= 0) break;
+  }
+  setBusy(false);
+  render();
+  save();
+}
+
+function useBestPotion(active) {
+  const missing = active.maxHp - active.currentHp;
+  if (missing <= 0) return false;
+  const available = POTIONS
+    .filter((potion) => getItem(potion.id) > 0)
+    .sort((a, b) => potionHealValue(a, active) - potionHealValue(b, active));
+  const item = available.find((potion) => potion.heal === "full" || potion.heal >= missing) || available.at(-1);
+  if (!item) return false;
+  addItem(item.id, -1);
+  state.stats.potionsUsed += 1;
+  const heal = item.heal === "full" ? missing : Math.min(missing, item.heal);
+  active.currentHp = clamp(active.currentHp + heal, 0, active.maxHp);
+  log(`Auto-pelea uso ${item.name}. ${active.displayName} recupero ${heal} PS.`);
+  return true;
+}
+
+function potionHealValue(potion, active) {
+  return potion.heal === "full" ? active.maxHp : potion.heal;
+}
+
+function shouldPauseAutoBattle(mon) {
+  return Boolean(mon && (mon.shiny || mon.rarity !== "normal" || PSEUDO_LEGENDARY_IDS.has(mon.apiId)));
+}
+
+function specialEncounterLabel(mon) {
+  if (!mon) return "especial";
+  if (mon.shiny) return "variocolor";
+  if (mon.rarity === "mythical") return "mitico";
+  if (mon.rarity === "legendary") return "legendario";
+  if (PSEUDO_LEGENDARY_IDS.has(mon.apiId)) return "pseudo-legendario";
+  return "especial";
+}
+
+async function evolutionButton(mon) {
+  const option = await findEvolutionOption(mon);
+  const button = document.createElement("button");
+  button.type = "button";
+  if (!option) {
+    button.textContent = "Sin evolucion";
+    button.disabled = true;
+    return button;
+  }
+  button.textContent = mon.level >= option.minLevel ? `Evolucionar a ${option.name}` : `Evoluciona Nv. ${option.minLevel}`;
+  button.disabled = mon.level < option.minLevel;
+  button.addEventListener("click", async () => {
+    await evolvePokemon(mon, option);
+    closeModal("statsModal");
+  });
+  return button;
+}
+
+async function findEvolutionOption(mon) {
+  if (!mon?.apiId) return null;
+  const species = await fetchPokemonSpecies(mon.apiId);
+  const chainUrl = species?.evolution_chain?.url;
+  if (!chainUrl) return null;
+  try {
+    const response = await fetch(chainUrl);
+    if (!response.ok) return null;
+    const chain = await response.json();
+    return findNextEvolutionInChain(chain.chain, mon.name);
+  } catch {
+    return null;
+  }
+}
+
+function findNextEvolutionInChain(node, name) {
+  if (!node) return null;
+  if (node.species?.name === name && node.evolves_to?.length) {
+    const next = node.evolves_to[0];
+    const details = next.evolution_details?.[0] || {};
+    const id = Number(next.species?.url?.match(/\/pokemon-species\/(\d+)\//)?.[1]);
+    return {
+      id,
+      name: title(next.species.name),
+      minLevel: details.min_level || 16
+    };
+  }
+  for (const child of node.evolves_to || []) {
+    const found = findNextEvolutionInChain(child, name);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function evolvePokemon(mon, option) {
+  if (!option?.id || mon.level < option.minLevel) return;
+  const data = await fetchPokemon(option.id);
+  const evolved = normalizePokemon(data);
+  Object.assign(mon, evolved, {
+    uid: mon.uid,
+    level: mon.level,
+    xp: mon.xp,
+    shiny: mon.shiny,
+    statBonus: mon.statBonus,
+    stats: scaleStats(evolved.baseStats, mon.level, evolved.rarity, mon.statBonus)
+  });
+  mon.maxHp = mon.stats.hp;
+  mon.currentHp = mon.maxHp;
+  log(`${title(data.name)} evoluciono y conserva su entrenamiento.`);
+  setMessage(`${mon.displayName} evoluciono.`);
+  render();
+  save();
 }
 
 function captureChance(ball, wild, active) {
   if (!wild || !active) return 0;
   if (ball.id === "masterBall") return 1;
-  const hpFactor = 1 - wild.currentHp / wild.maxHp;
-  const levelPenalty = Math.max(0, wild.level - active.level) * 0.006;
-  const rarityPenalty = wild.rarity === "legendary" ? 0.18 : wild.rarity === "mythical" ? 0.24 : 0;
-  const shinyPenalty = wild.shiny ? 0.06 : 0;
-  const base = 0.36 + hpFactor * 0.48 - levelPenalty - rarityPenalty - shinyPenalty;
+  const speciesRate = clamp((wild.captureRate || 120) / 255, 0.04, 0.82);
+  const hpFactor = 0.25 + (1 - wild.currentHp / wild.maxHp) * 0.78;
+  const levelFactor = clamp(1 + (active.level - wild.level) * 0.012, 0.42, 1.42);
+  const rarityFactor = rarityCaptureFactor(wild);
   const modifier = ballModifier(ball, wild, active);
-  return clamp(base * modifier, wild.rarity === "normal" ? 0.12 : 0.04, wild.rarity === "normal" ? 0.92 : 0.74);
+  const chance = speciesRate * hpFactor * levelFactor * rarityFactor * modifier;
+  return clamp(chance, wild.rarity === "normal" && !wild.shiny ? 0.03 : 0.01, maxCaptureChance(wild));
 }
 
 function ballModifier(ball, wild, active) {
   let mod = ball.mod;
-  if (ball.id === "quickBall") mod = wild.turns <= 1 ? 3.6 : 1.15;
-  if (ball.id === "timerBall") mod = Math.min(4, 1 + wild.turns * 0.36);
-  if (ball.id === "netBall" && hasAnyType(wild, ["water", "bug"])) mod = 3.2;
-  if (ball.id === "diveBall" && hasAnyType(wild, ["water"])) mod = 3.0;
-  if (ball.id === "lureBall" && hasAnyType(wild, ["water"])) mod = 3.0;
-  if (ball.id === "sportBall" && hasAnyType(wild, ["bug"])) mod = 3.0;
-  if (ball.id === "nestBall") mod = wild.level < 20 ? 3.2 : wild.level < 35 ? 2.2 : 1.1;
-  if (ball.id === "repeatBall" && state.collection.some((mon) => mon.apiId === wild.apiId)) mod = 3.4;
+  if (ball.id === "quickBall") mod = wild.turns <= 1 ? 3.2 : 0.8;
+  if (ball.id === "timerBall") mod = Math.min(3.5, 0.75 + wild.turns * 0.28);
+  if (ball.id === "netBall" && hasAnyType(wild, ["water", "bug"])) mod = 2.7;
+  if (ball.id === "diveBall" && hasAnyType(wild, ["water"])) mod = 2.55;
+  if (ball.id === "lureBall" && hasAnyType(wild, ["water"])) mod = 2.55;
+  if (ball.id === "sportBall" && hasAnyType(wild, ["bug"])) mod = 2.45;
+  if (ball.id === "nestBall") mod = wild.level < 20 ? 2.75 : wild.level < 35 ? 1.85 : 0.8;
+  if (ball.id === "repeatBall" && state.collection.some((mon) => mon.apiId === wild.apiId)) mod = 2.65;
   if (ball.id === "levelBall") {
     const ratio = active.level / Math.max(1, wild.level);
-    mod = ratio >= 4 ? 4 : ratio >= 2 ? 3 : ratio > 1 ? 2 : 1;
+    mod = ratio >= 4 ? 3.6 : ratio >= 2 ? 2.6 : ratio > 1 ? 1.55 : 0.85;
   }
-  if (ball.id === "heavyBall") mod = wild.weight >= 2000 ? 3.3 : wild.weight >= 1000 ? 2.2 : 1.1;
-  if (ball.id === "fastBall") mod = wild.baseStats.speed >= 100 ? 3.2 : 1.1;
-  if (ball.id === "beastBall" && wild.rarity !== "normal") mod = 4.2;
-  if (ball.id === "dreamBall" && wild.rarity !== "normal") mod = 3.2;
+  if (ball.id === "heavyBall") mod = wild.weight >= 2000 ? 2.9 : wild.weight >= 1000 ? 1.95 : 0.85;
+  if (ball.id === "fastBall") mod = wild.baseStats.speed >= 100 ? 2.75 : 0.85;
+  if (ball.id === "beastBall" && wild.rarity !== "normal") mod = 4.5;
+  if (ball.id === "dreamBall" && wild.rarity !== "normal") mod = 3.1;
   return mod;
+}
+
+function rarityCaptureFactor(wild) {
+  if (wild.rarity === "mythical") return wild.shiny ? 0.09 : 0.14;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.11 : 0.18;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.18 : 0.34;
+  return wild.shiny ? 0.42 : 1;
+}
+
+function maxCaptureChance(wild) {
+  if (wild.rarity === "mythical") return wild.shiny ? 0.28 : 0.38;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.32 : 0.46;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.42 : 0.62;
+  return wild.shiny ? 0.68 : 0.9;
 }
 
 function createBattlePokemon(data, level, shiny, forcedRarity = null) {
   const base = normalizePokemon(data);
-  const stats = scaleStats(base.baseStats, level, base.rarity);
+  const rarity = forcedRarity || base.rarity;
+  const statBonus = randomStatBonus();
+  const stats = scaleStats(base.baseStats, level, rarity, statBonus);
   return {
     ...base,
-    rarity: forcedRarity || base.rarity,
+    rarity,
     uid: uid(),
     level,
     shiny,
+    statBonus,
     stats,
     currentHp: stats.hp,
     maxHp: stats.hp,
@@ -1022,10 +1295,10 @@ async function hydratePokemonSpecies(mon) {
   save();
 }
 
-function scaleStats(base, level, rarity = "normal") {
-  const scale = 0.55 + level / 55;
+function scaleStats(base, level, rarity = "normal", statBonus = null) {
+  const scale = 0.55 + level / 72 + Math.log10(level + 9) * 0.34;
   const rarityBoost = rarity === "mythical" ? 1.14 : rarity === "legendary" ? 1.1 : 1;
-  return {
+  const stats = {
     hp: Math.floor(((base.hp * scale) + level * 2 + 18) * rarityBoost),
     attack: Math.floor((base.attack * scale + level) * rarityBoost),
     defense: Math.floor((base.defense * scale + level) * rarityBoost),
@@ -1033,6 +1306,105 @@ function scaleStats(base, level, rarity = "normal") {
     spDef: Math.floor((base.spDef * scale + level) * rarityBoost),
     speed: Math.floor((base.speed * scale + level) * rarityBoost)
   };
+  if (!statBonus) return stats;
+  Object.keys(stats).forEach((key) => {
+    stats[key] = Math.max(1, Math.floor(stats[key] * (1 + (statBonus[key] || 0))));
+  });
+  return stats;
+}
+
+function renderAreaSelect() {
+  if (!els.areaSelect) return;
+  const active = getActive();
+  const current = clamp(state.areaId || 0, 0, CAPTURE_AREAS.length - 1);
+  if (els.areaSelect.children.length !== CAPTURE_AREAS.length) {
+    els.areaSelect.innerHTML = "";
+    CAPTURE_AREAS.forEach((area) => {
+      const option = document.createElement("option");
+      option.value = area.id;
+      option.textContent = `${area.name} Nv. ${area.min}-${area.max}`;
+      els.areaSelect.appendChild(option);
+    });
+  }
+  const maxUnlocked = Math.min(CAPTURE_AREAS.length - 1, Math.floor(((active?.level || 1) + 9) / 10));
+  [...els.areaSelect.options].forEach((option) => {
+    option.disabled = Number(option.value) > maxUnlocked;
+  });
+  state.areaId = Math.min(current, maxUnlocked);
+  els.areaSelect.value = state.areaId;
+  const area = selectedArea();
+  els.areaHint.textContent = `${area.name}: salvajes Nv. ${area.min}-${area.max}. Capturas entran en Nv. 1.`;
+}
+
+function selectedArea() {
+  return CAPTURE_AREAS[clamp(state.areaId || 0, 0, CAPTURE_AREAS.length - 1)];
+}
+
+function renderPokedexTypeFilter() {
+  els.pokedexTypeFilter.innerHTML = `<option value="all">Todos</option>${POKEMON_TYPES.map((type) => `<option value="${type}">${title(type)}</option>`).join("")}`;
+}
+
+async function renderPokedex(force = false) {
+  if (!els.pokedexList) return;
+  if (!force && document.querySelector("#pokedexModal")?.classList.contains("hidden")) return;
+  const captured = new Map();
+  state.collection.forEach((mon) => {
+    const entry = captured.get(mon.apiId) || { normal: false, shiny: false, mon };
+    entry.normal = entry.normal || !mon.shiny;
+    entry.shiny = entry.shiny || Boolean(mon.shiny);
+    entry.mon = mon;
+    captured.set(mon.apiId, entry);
+  });
+  const idSearch = Number(els.pokedexIdSearch.value);
+  const typeFilter = els.pokedexTypeFilter.value || "all";
+  const rarityFilter = els.pokedexRarityFilter.value || "all";
+  const typeIds = typeFilter === "all" ? null : await pokemonIdsByType(typeFilter);
+  const ids = Number.isFinite(idSearch) && idSearch > 0
+    ? [clamp(idSearch, 1, MAX_POKEMON_ID)]
+    : Array.from({ length: MAX_POKEMON_ID }, (_, index) => index + 1);
+  const filtered = ids.filter((id) => {
+    if (rarityFilter === "legendary" && !LEGENDARY_IDS.has(id)) return false;
+    if (rarityFilter === "mythical" && !MYTHICAL_IDS.has(id)) return false;
+    if (rarityFilter === "normal" && (LEGENDARY_IDS.has(id) || MYTHICAL_IDS.has(id))) return false;
+    if (typeIds && !typeIds.has(id)) return false;
+    return true;
+  });
+  els.pokedexSummary.textContent = `${captured.size}/${MAX_POKEMON_ID} especies registradas - ${state.collection.length} Pokemon en coleccion`;
+  els.pokedexList.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  filtered.forEach((id) => {
+    const entry = captured.get(id);
+    const card = document.createElement("article");
+    card.className = `pokedex-entry${entry ? " captured" : " missing"}`;
+    const name = entry?.mon.displayName || `#${id}`;
+    const rarity = MYTHICAL_IDS.has(id) ? "Mitico" : LEGENDARY_IDS.has(id) ? "Legendario" : "Normal";
+    card.innerHTML = `
+      <img src="${entry ? (entry.mon.shiny ? entry.mon.shinySprite : entry.mon.sprite) : spriteUrl(id)}" alt="" loading="lazy">
+      <strong>#${id} ${entry ? name : "???"}</strong>
+      <small>${rarity}${entry ? ` - ${entry.mon.types.join(" / ")}` : ""}</small>
+      <span>${entry?.normal ? "Normal" : ""}${entry?.normal && entry?.shiny ? " + " : ""}${entry?.shiny ? "Variocolor" : ""}</span>
+    `;
+    fragment.appendChild(card);
+  });
+  els.pokedexList.appendChild(fragment);
+}
+
+async function pokemonIdsByType(type) {
+  if (typeIdCache.has(type)) return typeIdCache.get(type);
+  try {
+    const response = await fetch(`${API_ROOT}/type/${type}`);
+    if (!response.ok) throw new Error("Tipo no disponible");
+    const data = await response.json();
+    const ids = new Set(
+      data.pokemon
+        .map((entry) => Number(entry.pokemon.url.match(/\/pokemon\/(\d+)\//)?.[1]))
+        .filter((id) => Number.isFinite(id) && id >= 1 && id <= MAX_POKEMON_ID)
+    );
+    typeIdCache.set(type, ids);
+    return ids;
+  } catch {
+    return new Set();
+  }
 }
 
 function calcDamage(attacker, defender) {
@@ -1048,7 +1420,7 @@ function gainXp(mon, amount) {
   while (mon.level < MAX_LEVEL && mon.xp >= xpNeeded(mon.level)) {
     mon.xp -= xpNeeded(mon.level);
     mon.level += 1;
-    mon.stats = scaleStats(mon.baseStats, mon.level, mon.rarity);
+    mon.stats = scaleStats(mon.baseStats, mon.level, mon.rarity, mon.statBonus);
     mon.maxHp = mon.stats.hp;
     mon.currentHp = mon.maxHp;
     log(`${mon.displayName} subio a Nv. ${mon.level}.`);
@@ -1057,7 +1429,7 @@ function gainXp(mon, amount) {
 }
 
 function xpNeeded(level) {
-  return 30 + level * 12 + Math.floor(level ** 1.6);
+  return Math.floor(90 + level * 36 + level ** 1.85);
 }
 
 function releaseById(uid, announce = true) {
@@ -1079,8 +1451,23 @@ function releaseById(uid, announce = true) {
 }
 
 function findWeakestDuplicate(candidate) {
-  const duplicates = state.collection.filter((mon) => mon.apiId === candidate.apiId);
+  const duplicates = state.collection.filter((mon) => mon.apiId === candidate.apiId && Boolean(mon.shiny) === Boolean(candidate.shiny));
   return duplicates.length ? duplicates.sort((a, b) => powerScore(a) - powerScore(b))[0] : null;
+}
+
+function randomStatBonus() {
+  return {
+    hp: randomStatDelta(),
+    attack: randomStatDelta(),
+    defense: randomStatDelta(),
+    spAtk: randomStatDelta(),
+    spDef: randomStatDelta(),
+    speed: randomStatDelta()
+  };
+}
+
+function randomStatDelta() {
+  return (randomInt(-10, 10) / 100);
 }
 
 function powerScore(mon) {
@@ -1088,11 +1475,26 @@ function powerScore(mon) {
 }
 
 function captureReward(mon, ball) {
-  let reward = mon.shiny ? 120 : 35;
-  if (mon.rarity === "legendary") reward += 300;
-  if (mon.rarity === "mythical") reward += 480;
-  if (ball.id === "luxuryBall") reward += 80;
+  let reward = 25 + levelGoldValue(mon.level);
+  if (PSEUDO_LEGENDARY_IDS.has(mon.apiId)) reward += Math.round(levelGoldValue(mon.level) * 0.7) + 120;
+  if (mon.shiny) reward += Math.round(levelGoldValue(mon.level) * 1.2) + 180;
+  if (mon.rarity === "legendary") reward += Math.round(levelGoldValue(mon.level) * 1.6) + 420;
+  if (mon.rarity === "mythical") reward += Math.round(levelGoldValue(mon.level) * 2.1) + 650;
+  if (ball.id === "luxuryBall") reward = Math.round(reward * 1.45);
   return reward;
+}
+
+function defeatReward(mon) {
+  let reward = 16 + Math.round(levelGoldValue(mon.level) * 0.82);
+  if (PSEUDO_LEGENDARY_IDS.has(mon.apiId)) reward += 90;
+  if (mon.shiny) reward += Math.round(levelGoldValue(mon.level) * 0.9) + 140;
+  if (mon.rarity === "legendary") reward += Math.round(levelGoldValue(mon.level) * 1.15) + 260;
+  if (mon.rarity === "mythical") reward += Math.round(levelGoldValue(mon.level) * 1.55) + 410;
+  return reward;
+}
+
+function levelGoldValue(level) {
+  return Math.round(level * 4.5 + level ** 1.18);
 }
 
 function showResultModal({ title, kind, name, text, sprite, rewards, variant = "normal", showCenterButton = true, closeText = "Seguir en la ruta" }) {
@@ -1146,7 +1548,7 @@ function rewardSummary(rewards) {
 }
 
 function findItem(id) {
-  return BALLS.find((item) => item.id === id) || POTIONS.find((item) => item.id === id);
+  return BALLS.find((item) => item.id === id) || POTIONS.find((item) => item.id === id) || SHOP_ITEMS.find((item) => item.id === id);
 }
 
 function getActive() {
@@ -1158,8 +1560,362 @@ function statMarkup(stats) {
   return Object.entries(labels).map(([key, label]) => `<span>${label}<strong>${stats[key]}</strong></span>`).join("");
 }
 
+function statMarkupForPokemon(mon) {
+  const labels = { hp: "PS", attack: "Ataque", defense: "Defensa", spAtk: "At. esp.", spDef: "Def. esp.", speed: "Velocidad" };
+  const neutral = scaleStats(mon.baseStats, mon.level, mon.rarity);
+  return Object.entries(labels).map(([key, label]) => {
+    const diff = mon.stats[key] - neutral[key];
+    const sign = diff > 0 ? "+" : "";
+    const className = diff > 0 ? "stat-up" : diff < 0 ? "stat-down" : "";
+    return `<span>${label}<strong>${mon.stats[key]}</strong><em class="${className}">${sign}${diff} vs especie</em></span>`;
+  }).join("");
+}
+
 function renderLog() {
   els.battleLog.innerHTML = state.log.map((item) => `<p>${item}</p>`).join("");
+}
+
+function openAccountModalIfNeeded() {
+  const session = loadSession();
+  els.accountUserId.value = state.syncUserId || session.userId || "";
+  els.accountPassword.value = "";
+  if (session.userId) state.syncUserId = session.userId;
+  els.accountStatus.textContent = cloud
+    ? "Crea una cuenta o inicia sesion para cargar tu partida."
+    : "Configura Firebase para guardar progreso online. Mientras tanto, el progreso queda en este navegador.";
+  openModal("accountModal");
+}
+
+async function loginAccount() {
+  const credentials = readAccountForm();
+  if (!credentials) return;
+  setAccountBusy(true, "Entrando...");
+  try {
+    if (!cloud) throw new Error("Firebase no esta configurado");
+    const user = await signInCloud(credentials);
+    await refreshAdminRole(user.uid);
+    const saveData = await loadCloudSave(user.uid);
+    if (!saveData) throw new Error("La cuenta no tiene partida guardada");
+    suppressCloudSave = true;
+    replaceState(upgradeState(saveData));
+    state.syncUserId = credentials.userId;
+    const grants = await applyCloudGrants(user.uid);
+    saveSession(credentials.userId);
+    save();
+    suppressCloudSave = false;
+    if (grants.length) scheduleCloudSave(true);
+    render();
+    closeModal("accountModal");
+    setMessage(`Bienvenido, ${credentials.userId}.`);
+  } catch (error) {
+    els.accountStatus.textContent = `No se pudo entrar: ${error.message}`;
+  } finally {
+    setAccountBusy(false);
+  }
+}
+
+async function createAccount() {
+  const credentials = readAccountForm();
+  if (!credentials) return;
+  setAccountBusy(true, "Creando cuenta...");
+  try {
+    if (!cloud) throw new Error("Firebase no esta configurado");
+    const user = await createCloudAccount(credentials);
+    await refreshAdminRole(user.uid);
+    state.syncUserId = credentials.userId;
+    saveSession(credentials.userId);
+    save();
+    await saveCloudState(user.uid);
+    closeModal("accountModal");
+    setMessage(`Cuenta creada: ${credentials.userId}.`);
+  } catch (error) {
+    els.accountStatus.textContent = `No se pudo crear: ${error.message}`;
+  } finally {
+    setAccountBusy(false);
+  }
+}
+
+function readAccountForm() {
+  const userId = normalizeUserId(els.accountUserId.value);
+  const password = els.accountPassword.value;
+  if (!userId || !password) {
+    els.accountStatus.textContent = "Falta usuario o clave.";
+    return null;
+  }
+  if (password.length < 6) {
+    els.accountStatus.textContent = "La clave necesita minimo 6 caracteres.";
+    return null;
+  }
+  return { userId, password };
+}
+
+function setAccountBusy(value, message = "") {
+  els.loginBtn.disabled = value;
+  els.createAccountBtn.disabled = value;
+  if (message) els.accountStatus.textContent = message;
+}
+
+function initCloud() {
+  const config = window.POKERASTRO_FIREBASE_CONFIG || {};
+  if (!window.firebase || !config.apiKey || !config.projectId) return;
+  const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
+  cloud = {
+    app,
+    auth: firebase.auth(),
+    db: firebase.firestore(),
+    user: null
+  };
+  cloud.auth.onAuthStateChanged((user) => {
+    cloud.user = user;
+    if (user) refreshAdminRole(user.uid).catch(() => {});
+  });
+}
+
+async function signInCloud(credentials) {
+  const result = await cloud.auth.signInWithEmailAndPassword(accountEmail(credentials.userId), credentials.password);
+  cloud.user = result.user;
+  return result.user;
+}
+
+async function createCloudAccount(credentials) {
+  const result = await cloud.auth.createUserWithEmailAndPassword(accountEmail(credentials.userId), credentials.password);
+  cloud.user = result.user;
+  await result.user.updateProfile({ displayName: credentials.userId });
+  return result.user;
+}
+
+async function loadCloudSave(uid) {
+  const doc = await cloud.db.collection("saves").doc(uid).get();
+  return doc.exists ? doc.data().save : null;
+}
+
+async function saveCloudState(uid = cloud?.user?.uid) {
+  if (!cloud || !uid) return;
+  const snapshot = JSON.parse(JSON.stringify(state));
+  await cloud.db.collection("saves").doc(uid).set({
+    ...playerCloudSummary(snapshot),
+    save: snapshot,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+function playerCloudSummary(snapshot = state) {
+  const active = snapshot.collection.find((mon) => mon.uid === snapshot.activeId) || snapshot.collection[0] || null;
+  const strongest = [...snapshot.collection].sort((a, b) => powerScore(b) - powerScore(a))[0] || null;
+  const species = new Set(snapshot.collection.map((mon) => mon.apiId));
+  const itemSummary = cloudItemSummary(snapshot.items || {});
+  return {
+    userId: snapshot.syncUserId || cloud?.user?.displayName || "",
+    gold: Number(snapshot.gold) || 0,
+    steps: Number(snapshot.steps) || 0,
+    captures: Number(snapshot.stats?.captures || snapshot.caught) || 0,
+    defeats: Number(snapshot.stats?.defeats) || 0,
+    collectionCount: snapshot.collection.length,
+    speciesCount: species.size,
+    shinyCount: snapshot.collection.filter((mon) => mon.shiny).length,
+    legendaryCount: snapshot.collection.filter((mon) => mon.rarity === "legendary").length,
+    mythicalCount: snapshot.collection.filter((mon) => mon.rarity === "mythical").length,
+    highestLevel: snapshot.collection.reduce((max, mon) => Math.max(max, mon.level || 1), 1),
+    activePokemon: active ? pokemonCloudSummary(active) : null,
+    strongestPokemon: strongest ? pokemonCloudSummary(strongest) : null,
+    items: itemSummary,
+    pokeBall: itemSummary.pokeBall || 0,
+    greatBall: itemSummary.greatBall || 0,
+    ultraBall: itemSummary.ultraBall || 0,
+    masterBall: itemSummary.masterBall || 0,
+    rareCandy: itemSummary.rareCandy || 0
+  };
+}
+
+function pokemonCloudSummary(mon) {
+  return {
+    apiId: mon.apiId,
+    name: mon.displayName,
+    level: mon.level,
+    shiny: Boolean(mon.shiny),
+    rarity: mon.rarity,
+    power: powerScore(mon)
+  };
+}
+
+function cloudItemSummary(items) {
+  const summary = {};
+  [...BALLS, ...POTIONS, ...SHOP_ITEMS].forEach((item) => {
+    summary[item.id] = Number(items[item.id]) || 0;
+  });
+  return summary;
+}
+
+function scheduleCloudSave(now = false) {
+  if (!cloud?.user || suppressCloudSave) return;
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(() => {
+    saveCloudState().catch(() => {});
+  }, now ? 0 : 900);
+}
+
+async function applyCloudGrants(uid) {
+  const docRef = cloud.db.collection("grants").doc(uid);
+  const doc = await docRef.get();
+  if (!doc.exists) return [];
+  const data = doc.data() || {};
+  const grantId = String(data.grantId || data.nonce || doc.updateTime?.toMillis?.() || Date.now());
+  if (state.appliedGrants?.includes(grantId)) return [];
+  const grants = [];
+  if (Number(data.gold)) grants.push({ grantId: `${grantId}:gold`, gold: Number(data.gold) });
+  Object.entries(data.items || {}).forEach(([itemId, amount]) => {
+    if (Number(amount)) grants.push({ grantId: `${grantId}:${itemId}`, itemId, amount: Number(amount) });
+  });
+  const applied = applyAccountGrants(grants);
+  if (applied.length) await docRef.delete();
+  return applied;
+}
+
+async function refreshAdminRole(uid) {
+  if (!cloud || !uid) return false;
+  const doc = await cloud.db.collection("admins").doc(uid).get();
+  const isAdmin = doc.exists && doc.data()?.active !== false;
+  els.adminBtn.classList.toggle("hidden", !isAdmin);
+  return isAdmin;
+}
+
+function openAdminModal() {
+  currentAdminTarget = null;
+  els.adminUserSearch.value = "";
+  els.adminUserSummary.innerHTML = "";
+  els.adminStatus.textContent = "Busca un usuario para enviarle un regalo.";
+  resetAdminGrantForm();
+  openModal("adminModal");
+}
+
+async function adminSearchUser() {
+  const userId = normalizeUserId(els.adminUserSearch.value);
+  if (!userId) {
+    els.adminStatus.textContent = "Ingresa un usuario.";
+    return;
+  }
+  els.adminStatus.textContent = "Buscando...";
+  try {
+    const query = await cloud.db.collection("saves").where("userId", "==", userId).limit(1).get();
+    if (query.empty) {
+      currentAdminTarget = null;
+      els.adminUserSummary.innerHTML = "";
+      els.adminStatus.textContent = "Usuario no encontrado.";
+      return;
+    }
+    const doc = query.docs[0];
+    currentAdminTarget = { uid: doc.id, ...doc.data() };
+    renderAdminSummary(currentAdminTarget);
+    els.adminStatus.textContent = `Usuario encontrado: ${currentAdminTarget.userId}.`;
+  } catch (error) {
+    els.adminStatus.textContent = `No se pudo buscar: ${error.message}`;
+  }
+}
+
+function renderAdminSummary(user) {
+  const active = user.activePokemon;
+  const strongest = user.strongestPokemon;
+  els.adminUserSummary.innerHTML = `
+    <span>Usuario<strong>${user.userId || "-"}</strong></span>
+    <span>Oro<strong>${user.gold || 0}</strong></span>
+    <span>Capturas<strong>${user.captures || 0}</strong></span>
+    <span>Pokemon<strong>${user.collectionCount || 0}</strong></span>
+    <span>Nivel max<strong>${user.highestLevel || 1}</strong></span>
+    <span>Master Ball<strong>${user.masterBall || 0}</strong></span>
+    <span>Activo<strong>${active ? `${active.name} Nv. ${active.level}` : "-"}</strong></span>
+    <span>Mas fuerte<strong>${strongest ? `${strongest.name} Nv. ${strongest.level}` : "-"}</strong></span>
+  `;
+}
+
+async function adminSendGrant() {
+  if (!currentAdminTarget) {
+    els.adminStatus.textContent = "Primero busca un usuario.";
+    return;
+  }
+  const gold = numberInput(els.adminGrantGold);
+  const masterBall = numberInput(els.adminGrantMasterBall);
+  const ultraBall = numberInput(els.adminGrantUltraBall);
+  const rareCandy = numberInput(els.adminGrantRareCandy);
+  if (!gold && !masterBall && !ultraBall && !rareCandy) {
+    els.adminStatus.textContent = "Ingresa al menos un premio.";
+    return;
+  }
+  const items = {};
+  if (masterBall) items.masterBall = masterBall;
+  if (ultraBall) items.ultraBall = ultraBall;
+  if (rareCandy) items.rareCandy = rareCandy;
+  els.adminStatus.textContent = "Enviando regalo...";
+  try {
+    await cloud.db.collection("grants").doc(currentAdminTarget.uid).set({
+      grantId: `admin-${Date.now()}`,
+      gold,
+      items,
+      from: cloud.user.uid,
+      targetUserId: currentAdminTarget.userId,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    els.adminStatus.textContent = "Regalo enviado. Se aplicara cuando el jugador vuelva a entrar.";
+    resetAdminGrantForm();
+  } catch (error) {
+    els.adminStatus.textContent = `No se pudo enviar: ${error.message}`;
+  }
+}
+
+function resetAdminGrantForm() {
+  els.adminGrantGold.value = 0;
+  els.adminGrantMasterBall.value = 0;
+  els.adminGrantUltraBall.value = 0;
+  els.adminGrantRareCandy.value = 0;
+}
+
+function numberInput(input) {
+  return Math.max(0, Math.floor(Number(input.value) || 0));
+}
+
+function normalizeUserId(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+}
+
+function accountEmail(userId) {
+  return `${userId}@pokerastro.local`;
+}
+
+function applyAccountGrants(grants) {
+  state.appliedGrants = Array.isArray(state.appliedGrants) ? state.appliedGrants : [];
+  const applied = [];
+  grants.forEach((grant) => {
+    const id = String(grant.grantId || "");
+    if (!id || state.appliedGrants.includes(id)) return;
+    const gold = Number(grant.gold) || 0;
+    const amount = Number(grant.amount) || 0;
+    if (gold) {
+      state.gold += gold;
+      applied.push(`${gold} oro`);
+    }
+    if (grant.itemId && amount) {
+      addItem(grant.itemId, amount);
+      applied.push(`${findItem(grant.itemId)?.name || grant.itemId} x${amount}`);
+    }
+    state.appliedGrants.push(id);
+  });
+  return applied;
+}
+
+function replaceState(next) {
+  Object.keys(state).forEach((key) => delete state[key]);
+  Object.assign(state, next);
+}
+
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveSession(userId) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ userId }));
 }
 
 function loadState() {
@@ -1168,12 +1924,15 @@ function loadState() {
     steps: 0,
     caught: 0,
     activeId: null,
+    areaId: 0,
+    syncUserId: "",
     wild: null,
     collection: [],
     items: defaultItems(),
     stats: defaultStats(),
     achievementsClaimed: [],
     missionsClaimed: [],
+    appliedGrants: [],
     activeMissions: [],
     log: []
   };
@@ -1199,19 +1958,26 @@ function upgradeState(raw) {
   upgraded.stats.shinyCaptures = Math.max(upgraded.stats.shinyCaptures, upgraded.collection.filter((mon) => mon.shiny).length);
   upgraded.achievementsClaimed = raw.achievementsClaimed || [];
   upgraded.missionsClaimed = raw.missionsClaimed || [];
+  upgraded.appliedGrants = raw.appliedGrants || [];
+  upgraded.syncUserId = raw.syncUserId || "";
   upgraded.activeMissions = raw.activeMissions || [];
+  upgraded.areaId = clamp(Number(raw.areaId) || 0, 0, CAPTURE_AREAS.length - 1);
   return upgraded;
 }
 
 function upgradePokemon(mon) {
   const rarity = mon.rarity || (MYTHICAL_IDS.has(mon.apiId) ? "mythical" : LEGENDARY_IDS.has(mon.apiId) ? "legendary" : "normal");
   const baseStats = mon.baseStats || mon.stats || { hp: 45, attack: 45, defense: 45, spAtk: 45, spDef: 45, speed: 45 };
-  const stats = mon.stats || scaleStats(baseStats, mon.level || 5, rarity);
+  const statBonus = mon.statBonus || { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 };
+  const level = clamp(mon.level || 5, 1, MAX_LEVEL);
+  const stats = scaleStats(baseStats, level, rarity, statBonus);
   const maxHp = mon.maxHp || stats.hp;
   return {
     ...mon,
+    level,
     rarity,
     baseStats,
+    statBonus,
     stats,
     maxHp,
     currentHp: clamp(mon.currentHp ?? maxHp, 1, maxHp),
@@ -1235,6 +2001,9 @@ function defaultItems() {
   POTIONS.forEach((potion) => {
     items[potion.id] = 0;
   });
+  SHOP_ITEMS.forEach((item) => {
+    items[item.id] = 0;
+  });
   items.pokeBall = 6;
   items.potion = 3;
   return items;
@@ -1257,6 +2026,7 @@ function defaultStats() {
 
 function save() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  scheduleCloudSave();
 }
 
 function log(message) {
@@ -1375,6 +2145,7 @@ function closeModal(id) {
 function setBusy(value) {
   busy = value;
   els.walkBtn.disabled = value;
+  els.autoBattleBtn.disabled = value;
 }
 
 function animate(element, className) {
