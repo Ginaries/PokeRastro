@@ -172,6 +172,7 @@ const els = {
   caughtCount: $("#caughtCount"),
   inventory: $("#inventory"),
   shopInventory: $("#shopInventory"),
+  shopGold: $("#shopGold"),
   encounterHint: $("#encounterHint"),
   battleMessage: $("#battleMessage"),
   wildSlot: $("#wildSlot"),
@@ -216,6 +217,15 @@ const els = {
   potionShopList: $("#potionShopList"),
   itemShopList: $("#itemShopList"),
   cardShopList: $("#cardShopList"),
+  quantityTitle: $("#quantityTitle"),
+  quantityIcon: $("#quantityIcon"),
+  quantityItemName: $("#quantityItemName"),
+  quantityItemDetail: $("#quantityItemDetail"),
+  quantityInput: $("#quantityInput"),
+  quantityRange: $("#quantityRange"),
+  quantitySummary: $("#quantitySummary"),
+  quantityMaxBtn: $("#quantityMaxBtn"),
+  quantityConfirmBtn: $("#quantityConfirmBtn"),
   ballBagList: $("#ballBagList"),
   potionBagList: $("#potionBagList"),
   pokedexIdSearch: $("#pokedexIdSearch"),
@@ -272,6 +282,7 @@ let cloudSaveTimer = null;
 let suppressCloudSave = false;
 let currentAdminTarget = null;
 let adminUsers = [];
+let quantityAction = null;
 
 boot();
 
@@ -344,6 +355,10 @@ function bindEvents() {
   els.createAccountBtn.addEventListener("click", createAccount);
   els.logoutBtn.addEventListener("click", logoutAccount);
   els.resetAccountBtn.addEventListener("click", resetAccountProgress);
+  els.quantityInput.addEventListener("input", syncQuantityFromInput);
+  els.quantityRange.addEventListener("input", syncQuantityFromRange);
+  els.quantityMaxBtn.addEventListener("click", setQuantityToMax);
+  els.quantityConfirmBtn.addEventListener("click", confirmQuantityAction);
   els.centerHealBtn.addEventListener("click", healTeamAtCenter);
   els.resultCenterBtn.addEventListener("click", () => {
     closeModal("resultModal");
@@ -676,15 +691,21 @@ function healTeamAtCenter() {
 }
 
 function buyItem(itemId, cost, name) {
-  if (state.gold < cost) {
+  return buyItemQuantity(itemId, cost, name, 1);
+}
+
+function buyItemQuantity(itemId, cost, name, quantity) {
+  const amount = Math.max(1, Math.floor(quantity) || 1);
+  const totalCost = cost * amount;
+  if (state.gold < totalCost) {
     log(`Te falta oro para comprar ${name}.`);
     setMessage(`No alcanza el oro para ${name}.`);
     return;
   }
-  state.gold -= cost;
-  addItem(itemId, 1);
-  state.stats.shopPurchases += 1;
-  log(`Compraste 1 ${name}.`);
+  state.gold -= totalCost;
+  addItem(itemId, amount);
+  state.stats.shopPurchases += amount;
+  log(`Compraste ${amount} ${name}. -${totalCost} oro.`);
   render();
   save();
 }
@@ -697,6 +718,7 @@ function render() {
   els.caughtCount.textContent = state.caught;
   els.inventory.textContent = inventoryText;
   els.shopInventory.textContent = inventoryText;
+  els.shopGold.textContent = `${state.gold} oro`;
   renderActive(active);
   renderWild();
   renderAreaSelect();
@@ -772,7 +794,7 @@ function shopButton(item) {
   const button = document.createElement("button");
   button.type = "button";
   button.innerHTML = `${itemIconMarkup(item)}<span>${item.name}</span><strong>${item.cost} oro</strong><small>${item.note}</small>`;
-  button.addEventListener("click", () => buyItem(item.id, item.cost, item.name));
+  button.addEventListener("click", () => openBuyQuantity(item));
   return button;
 }
 
@@ -785,7 +807,7 @@ function renderCardShop() {
     button.type = "button";
     button.disabled = owned <= 0;
     button.innerHTML = `${itemIconMarkup(card)}<span>${card.name} x${owned}</span><strong>${card.value} oro c/u</strong><small>${owned > 0 ? `Vender todo: +${owned * card.value} oro` : "Derrotando Pokemon pueden caer."}</small>`;
-    button.addEventListener("click", () => sellCard(card.id));
+    button.addEventListener("click", () => openSellQuantity(card));
     els.cardShopList.appendChild(button);
   });
 }
@@ -794,12 +816,106 @@ function sellCard(cardId) {
   const card = CARD_ITEMS.find((item) => item.id === cardId);
   const owned = getItem(cardId);
   if (!card || owned <= 0) return;
-  addItem(cardId, -owned);
-  state.gold += owned * card.value;
-  log(`Vendiste ${owned} ${card.name}. +${owned * card.value} oro.`);
-  setMessage(`Vendiste cartas por ${owned * card.value} oro.`);
+  sellCardQuantity(cardId, owned);
+}
+
+function sellCardQuantity(cardId, quantity) {
+  const card = CARD_ITEMS.find((item) => item.id === cardId);
+  const owned = getItem(cardId);
+  const amount = clamp(Math.floor(quantity) || 1, 1, owned);
+  if (!card || owned <= 0) return;
+  addItem(cardId, -amount);
+  state.gold += amount * card.value;
+  log(`Vendiste ${amount} ${card.name}. +${amount * card.value} oro.`);
+  setMessage(`Vendiste cartas por ${amount * card.value} oro.`);
   render();
   save();
+}
+
+function openBuyQuantity(item) {
+  const max = Math.floor(state.gold / item.cost);
+  if (max <= 0) {
+    setMessage(`No alcanza el oro para ${item.name}.`);
+    return;
+  }
+  openQuantityModal({
+    mode: "buy",
+    item,
+    max,
+    unitValue: item.cost,
+    confirmText: "Comprar",
+    detail: `${item.cost} oro c/u`
+  });
+}
+
+function openSellQuantity(card) {
+  const max = getItem(card.id);
+  if (max <= 0) return;
+  openQuantityModal({
+    mode: "sell-card",
+    item: card,
+    max,
+    unitValue: card.value,
+    confirmText: "Vender",
+    detail: `${card.value} oro c/u`
+  });
+}
+
+function openQuantityModal(action) {
+  quantityAction = action;
+  els.quantityTitle.textContent = action.mode === "buy" ? "Comprar" : "Vender";
+  els.quantityIcon.src = itemIconUrl(action.item.id);
+  els.quantityItemName.textContent = action.item.name;
+  els.quantityItemDetail.textContent = action.detail;
+  els.quantityInput.max = action.max;
+  els.quantityRange.max = action.max;
+  els.quantityInput.value = 1;
+  els.quantityRange.value = 1;
+  els.quantityConfirmBtn.textContent = action.confirmText;
+  updateQuantitySummary();
+  openModal("quantityModal");
+}
+
+function syncQuantityFromInput() {
+  if (!quantityAction) return;
+  const amount = clamp(Math.floor(Number(els.quantityInput.value) || 1), 1, quantityAction.max);
+  els.quantityInput.value = amount;
+  els.quantityRange.value = amount;
+  updateQuantitySummary();
+}
+
+function syncQuantityFromRange() {
+  if (!quantityAction) return;
+  els.quantityInput.value = els.quantityRange.value;
+  updateQuantitySummary();
+}
+
+function setQuantityToMax() {
+  if (!quantityAction) return;
+  els.quantityInput.value = quantityAction.max;
+  els.quantityRange.value = quantityAction.max;
+  updateQuantitySummary();
+}
+
+function updateQuantitySummary() {
+  if (!quantityAction) return;
+  const amount = Math.floor(Number(els.quantityInput.value) || 1);
+  const total = amount * quantityAction.unitValue;
+  const verb = quantityAction.mode === "buy" ? "Costo" : "Ganancia";
+  els.quantitySummary.textContent = `Maximo ${quantityAction.max} - ${verb}: ${total} oro`;
+}
+
+function confirmQuantityAction() {
+  if (!quantityAction) return;
+  const amount = clamp(Math.floor(Number(els.quantityInput.value) || 1), 1, quantityAction.max);
+  const action = quantityAction;
+  closeModal("quantityModal");
+  quantityAction = null;
+  if (action.mode === "buy") {
+    buyItemQuantity(action.item.id, action.item.cost, action.item.name, amount);
+  } else {
+    sellCardQuantity(action.item.id, amount);
+  }
 }
 
 function renderBallBag() {
@@ -2443,6 +2559,7 @@ function openModal(id) {
 
 function closeModal(id) {
   document.querySelector(`#${id}`)?.classList.add("hidden");
+  if (id === "quantityModal") quantityAction = null;
 }
 
 function setBusy(value) {

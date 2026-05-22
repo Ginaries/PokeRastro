@@ -140,20 +140,53 @@
     </div>
 
     <div class="modal hidden" id="shopModal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
-      <div class="dialog wide-dialog">
-        <div class="modal-head">
-          <h2 id="shopTitle">Tienda</h2>
-          <button class="close-modal" data-close="shopModal" type="button">Cerrar</button>
+      <div class="dialog wide-dialog shop-dialog">
+        <div class="shop-sticky-head">
+          <div class="modal-head">
+            <h2 id="shopTitle">Tienda</h2>
+            <button class="close-modal" data-close="shopModal" type="button">Cerrar</button>
+          </div>
+          <div class="shop-status-row">
+            <p class="modal-subtitle" id="shopGold">0 oro</p>
+            <p class="modal-subtitle" id="shopInventory">0 Balls - 0 curas</p>
+          </div>
         </div>
-        <p class="modal-subtitle" id="shopInventory">0 Balls - 0 curas</p>
-        <h3>Balls</h3>
-        <div class="shop-grid" id="ballShopList"></div>
-        <h3>Pociones</h3>
-        <div class="shop-grid" id="potionShopList"></div>
-        <h3>Objetos</h3>
-        <div class="shop-grid" id="itemShopList"></div>
-        <h3>Cartas</h3>
-        <div class="shop-grid" id="cardShopList"></div>
+        <div class="shop-scroll">
+          <h3>Balls</h3>
+          <div class="shop-grid" id="ballShopList"></div>
+          <h3>Pociones</h3>
+          <div class="shop-grid" id="potionShopList"></div>
+          <h3>Objetos</h3>
+          <div class="shop-grid" id="itemShopList"></div>
+          <h3>Cartas</h3>
+          <div class="shop-grid" id="cardShopList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="quantityModal" role="dialog" aria-modal="true" aria-labelledby="quantityTitle">
+      <div class="dialog quantity-dialog">
+        <div class="modal-head">
+          <h2 id="quantityTitle">Cantidad</h2>
+          <button class="close-modal" data-close="quantityModal" type="button">Cerrar</button>
+        </div>
+        <div class="quantity-profile">
+          <img id="quantityIcon" alt="" class="item-icon">
+          <div>
+            <strong id="quantityItemName">Objeto</strong>
+            <p id="quantityItemDetail">0 oro c/u</p>
+          </div>
+        </div>
+        <label class="quantity-control">
+          Cantidad
+          <input id="quantityInput" type="number" min="1" value="1">
+        </label>
+        <input id="quantityRange" type="range" min="1" value="1">
+        <p class="modal-subtitle" id="quantitySummary">Maximo 1</p>
+        <div class="stats-actions">
+          <button id="quantityMaxBtn" type="button">Max</button>
+          <button id="quantityConfirmBtn" class="primary-action" type="button">Confirmar</button>
+        </div>
       </div>
     </div>
 

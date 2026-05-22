@@ -450,6 +450,7 @@ h3 {
 }
 
 #resultModal,
+#quantityModal,
 #centerModal {
   z-index: 30;
 }
@@ -469,6 +470,75 @@ h3 {
 
 .wide-dialog {
   width: min(940px, 100%);
+}
+
+.shop-dialog {
+  max-height: min(790px, 92vh);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.shop-sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  background: var(--panel-strong);
+}
+
+.shop-status-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 10px;
+}
+
+.shop-status-row .modal-subtitle {
+  margin: 0;
+}
+
+.shop-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.quantity-dialog {
+  width: min(420px, 100%);
+}
+
+.quantity-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.quantity-profile .item-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.quantity-profile strong {
+  display: block;
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.quantity-profile p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.quantity-control {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
 }
 
 .stats-dialog {
@@ -983,6 +1053,7 @@ h3 {
   .action-grid,
   .menu-grid,
   .shop-grid,
+  .shop-status-row,
   .bag-grid,
   .stats-actions,
   .admin-grid {
@@ -998,6 +1069,7 @@ h3 {
   .action-grid,
   .menu-grid,
   .shop-grid,
+  .shop-status-row,
   .bag-grid,
   .stats-actions,
   .admin-grid,
