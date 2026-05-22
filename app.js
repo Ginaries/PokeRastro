@@ -29,17 +29,17 @@ const MYTHICAL_IDS = new Set([
 const PSEUDO_LEGENDARY_IDS = new Set([149, 248, 373, 376, 445, 635, 706, 784, 887, 998]);
 
 const BALLS = [
-  { id: "pokeBall", name: "Poke Ball", cost: 45, mod: 0.75, note: "Basica, mejor en salvajes comunes." },
-  { id: "greatBall", name: "Great Ball", cost: 200, mod: 1.15, note: "Mejora general confiable." },
-  { id: "ultraBall", name: "Ultra Ball", cost: 500, mod: 1.75, note: "Fuerte contra casi todo." },
+  { id: "pokeBall", name: "Poke Ball", cost: 45, mod: 0.95, note: "Basica, confiable contra salvajes comunes." },
+  { id: "greatBall", name: "Great Ball", cost: 200, mod: 1.45, note: "Mejora general confiable." },
+  { id: "ultraBall", name: "Ultra Ball", cost: 500, mod: 2.15, note: "Fuerte contra casi todo." },
   { id: "masterBall", name: "Master Ball", cost: 7500, mod: 999, note: "Captura garantizada." },
-  { id: "premierBall", name: "Premier Ball", cost: 70, mod: 0.9, note: "Ligero bonus elegante." },
-  { id: "healBall", name: "Heal Ball", cost: 85, mod: 0.95, note: "Captura y cura al nuevo." },
-  { id: "netBall", name: "Net Ball", cost: 190, mod: 0.9, note: "Muy buena contra agua o bicho." },
-  { id: "nestBall", name: "Nest Ball", cost: 175, mod: 0.85, note: "Mejor contra niveles bajos." },
-  { id: "repeatBall", name: "Repeat Ball", cost: 210, mod: 0.9, note: "Mejor si ya lo tenias." },
-  { id: "timerBall", name: "Timer Ball", cost: 230, mod: 0.85, note: "Sube con turnos." },
-  { id: "quickBall", name: "Quick Ball", cost: 310, mod: 0.85, note: "Muy fuerte al inicio." },
+  { id: "premierBall", name: "Premier Ball", cost: 70, mod: 1.08, note: "Ligero bonus elegante." },
+  { id: "healBall", name: "Heal Ball", cost: 85, mod: 1.1, note: "Captura y cura al nuevo." },
+  { id: "netBall", name: "Net Ball", cost: 190, mod: 1.05, note: "Muy buena contra agua o bicho." },
+  { id: "nestBall", name: "Nest Ball", cost: 175, mod: 1.0, note: "Mejor contra niveles bajos." },
+  { id: "repeatBall", name: "Repeat Ball", cost: 210, mod: 1.05, note: "Mejor si ya lo tenias." },
+  { id: "timerBall", name: "Timer Ball", cost: 230, mod: 1.0, note: "Sube con turnos." },
+  { id: "quickBall", name: "Quick Ball", cost: 310, mod: 1.0, note: "Muy fuerte al inicio." },
   { id: "duskBall", name: "Dusk Ball", cost: 240, mod: 1.65, note: "Buena en esta ruta boscosa." },
   { id: "diveBall", name: "Dive Ball", cost: 190, mod: 0.9, note: "Muy buena contra agua." },
   { id: "luxuryBall", name: "Luxury Ball", cost: 320, mod: 1.05, note: "Mas oro al capturar." },
@@ -51,7 +51,7 @@ const BALLS = [
   { id: "heavyBall", name: "Heavy Ball", cost: 250, mod: 0.85, note: "Mejor contra pesos pesados." },
   { id: "fastBall", name: "Fast Ball", cost: 245, mod: 0.85, note: "Mejor contra veloces." },
   { id: "dreamBall", name: "Dream Ball", cost: 420, mod: 1.8, note: "Muy buena contra raros." },
-  { id: "beastBall", name: "Beast Ball", cost: 520, mod: 0.65, note: "Dificil, pero sube contra raros." },
+  { id: "beastBall", name: "Beast Ball", cost: 520, mod: 0.8, note: "Dificil, pero sube contra raros." },
   { id: "safariBall", name: "Safari Ball", cost: 170, mod: 1.1, note: "Solida para la ruta." },
   { id: "sportBall", name: "Sport Ball", cost: 195, mod: 1.1, note: "Mejor contra bicho." },
   { id: "cherishBall", name: "Cherish Ball", cost: 1100, mod: 2.35, note: "Cara y potente." }
@@ -61,8 +61,8 @@ const POTIONS = [
   { id: "potion", name: "Pocion", cost: 65, heal: 30, note: "Cura 30 PS." },
   { id: "superPotion", name: "Super Pocion", cost: 135, heal: 70, note: "Cura 70 PS." },
   { id: "hyperPotion", name: "Hiper Pocion", cost: 280, heal: 150, note: "Cura 150 PS." },
-  { id: "maxPotion", name: "Max Pocion", cost: 520, heal: "full", note: "Cura todos los PS." },
-  { id: "fullRestore", name: "Restaurar Todo", cost: 760, heal: "full", note: "Cura completo." },
+  { id: "maxPotion", name: "Max Pocion", cost: 680, heal: "full", note: "Cura todos los PS." },
+  { id: "fullRestore", name: "Restaurar Todo", cost: 460, healPercent: 0.72, note: "Cura 72% de los PS maximos." },
   { id: "freshWater", name: "Agua Fresca", cost: 90, heal: 50, note: "Cura 50 PS." },
   { id: "sodaPop", name: "Refresco", cost: 120, heal: 60, note: "Cura 60 PS." },
   { id: "lemonade", name: "Limonada", cost: 160, heal: 80, note: "Cura 80 PS." },
@@ -70,7 +70,20 @@ const POTIONS = [
 ];
 
 const SHOP_ITEMS = [
-  { id: "rareCandy", name: "Caramelo raro", cost: 1500, note: "Sube 1 nivel al Pokemon activo.", icon: "rare-candy" }
+  { id: "rareCandy", name: "Caramelo raro", cost: 1500, note: "Sube 1 nivel al Pokemon activo.", icon: "rare-candy" },
+  { id: "hpUp", name: "Mas PS", cost: 5200, stat: "hp", boost: 0.03, maxBoost: 0.35, note: "+3% PS al Pokemon activo." },
+  { id: "protein", name: "Proteina", cost: 5600, stat: "attack", boost: 0.03, maxBoost: 0.35, note: "+3% Ataque al Pokemon activo." },
+  { id: "iron", name: "Hierro", cost: 5400, stat: "defense", boost: 0.03, maxBoost: 0.35, note: "+3% Defensa al Pokemon activo." },
+  { id: "calcium", name: "Calcio", cost: 5800, stat: "spAtk", boost: 0.03, maxBoost: 0.35, note: "+3% At. esp. al Pokemon activo." },
+  { id: "zinc", name: "Zinc", cost: 5400, stat: "spDef", boost: 0.03, maxBoost: 0.35, note: "+3% Def. esp. al Pokemon activo." },
+  { id: "carbos", name: "Carburante", cost: 5600, stat: "speed", boost: 0.03, maxBoost: 0.35, note: "+3% Velocidad al Pokemon activo." }
+];
+
+const CARD_ITEMS = [
+  { id: "cardCommon", name: "Carta comun", value: 90, chance: 0.28, icon: "coin-case" },
+  { id: "cardRare", name: "Carta rara", value: 320, chance: 0.085, icon: "coin-case" },
+  { id: "cardHolo", name: "Carta holo", value: 900, chance: 0.025, icon: "coin-case" },
+  { id: "cardLegend", name: "Carta legendaria", value: 2400, chance: 0.007, icon: "coin-case" }
 ];
 
 const ITEM_SLUGS = {
@@ -109,8 +122,20 @@ const ITEM_SLUGS = {
   sodaPop: "soda-pop",
   lemonade: "lemonade",
   moomooMilk: "moomoo-milk",
-  rareCandy: "rare-candy"
+  rareCandy: "rare-candy",
+  hpUp: "hp-up",
+  protein: "protein",
+  iron: "iron",
+  calcium: "calcium",
+  zinc: "zinc",
+  carbos: "carbos",
+  cardCommon: "coin-case",
+  cardRare: "coin-case",
+  cardHolo: "coin-case",
+  cardLegend: "coin-case"
 };
+
+const STAT_LABELS = { hp: "PS", attack: "Ataque", defense: "Defensa", spAtk: "At. esp.", spDef: "Def. esp.", speed: "Velocidad" };
 
 const ACHIEVEMENTS = [
   { id: "capture-1", title: "Primer registro", description: "Captura 1 Pokemon.", goal: 1, progress: () => state.stats.captures, rewards: { gold: 120, items: { greatBall: 2 } } },
@@ -185,9 +210,12 @@ const els = {
   missionsBtn: $("#missionsBtn"),
   logBtn: $("#logBtn"),
   sortBtn: $("#sortBtn"),
+  logoutBtn: $("#logoutBtn"),
+  resetAccountBtn: $("#resetAccountBtn"),
   ballShopList: $("#ballShopList"),
   potionShopList: $("#potionShopList"),
   itemShopList: $("#itemShopList"),
+  cardShopList: $("#cardShopList"),
   ballBagList: $("#ballBagList"),
   potionBagList: $("#potionBagList"),
   pokedexIdSearch: $("#pokedexIdSearch"),
@@ -219,11 +247,15 @@ const els = {
   adminBtn: $("#adminBtn"),
   adminUserSearch: $("#adminUserSearch"),
   adminSearchBtn: $("#adminSearchBtn"),
+  adminRefreshUsersBtn: $("#adminRefreshUsersBtn"),
+  adminUserList: $("#adminUserList"),
   adminUserSummary: $("#adminUserSummary"),
   adminGrantGold: $("#adminGrantGold"),
   adminGrantMasterBall: $("#adminGrantMasterBall"),
   adminGrantUltraBall: $("#adminGrantUltraBall"),
   adminGrantRareCandy: $("#adminGrantRareCandy"),
+  adminItemSelect: $("#adminItemSelect"),
+  adminItemAmount: $("#adminItemAmount"),
   adminGrantBtn: $("#adminGrantBtn"),
   adminStatus: $("#adminStatus"),
   accountUserId: $("#accountUserId"),
@@ -239,6 +271,7 @@ let cloud = null;
 let cloudSaveTimer = null;
 let suppressCloudSave = false;
 let currentAdminTarget = null;
+let adminUsers = [];
 
 boot();
 
@@ -248,17 +281,21 @@ async function boot() {
   renderAreaSelect();
   renderPokedexTypeFilter();
   renderShop();
-  if (!state.collection.length) {
-    const starter = await fetchPokemon([1, 4, 7, 25][randomInt(0, 3)]);
-    const mon = createOwnedPokemon(starter, 5, false);
-    state.collection.push(mon);
-    state.activeId = mon.uid;
-    log(`Tu aventura empieza con ${mon.displayName}.`);
-  }
+  renderAdminItemSelect();
+  await ensureStarterPokemon();
   ensureActiveMissions();
   render();
   save();
   openAccountModalIfNeeded();
+}
+
+async function ensureStarterPokemon() {
+  if (state.collection.length) return;
+  const starter = await fetchPokemon([1, 4, 7, 25][randomInt(0, 3)]);
+  const mon = createOwnedPokemon(starter, 5, false);
+  state.collection.push(mon);
+  state.activeId = mon.uid;
+  log(`Tu aventura empieza con ${mon.displayName}.`);
 }
 
 function bindEvents() {
@@ -300,9 +337,13 @@ function bindEvents() {
   els.logBtn.addEventListener("click", () => openModal("logModal"));
   els.adminBtn.addEventListener("click", openAdminModal);
   els.adminSearchBtn.addEventListener("click", adminSearchUser);
+  els.adminRefreshUsersBtn.addEventListener("click", loadAdminUsers);
+  els.adminUserList.addEventListener("change", adminSelectUser);
   els.adminGrantBtn.addEventListener("click", adminSendGrant);
   els.loginBtn.addEventListener("click", loginAccount);
   els.createAccountBtn.addEventListener("click", createAccount);
+  els.logoutBtn.addEventListener("click", logoutAccount);
+  els.resetAccountBtn.addEventListener("click", resetAccountProgress);
   els.centerHealBtn.addEventListener("click", healTeamAtCenter);
   els.resultCenterBtn.addEventListener("click", () => {
     closeModal("resultModal");
@@ -404,7 +445,7 @@ function attack() {
   log(`${active.displayName} golpeo por ${playerDamage}.`);
 
   if (wild.currentHp <= 0) {
-    defeatWild();
+    defeatWild(active);
   } else {
     wild.turns += 1;
     const enemyDamage = calcDamage(wild, active);
@@ -473,7 +514,7 @@ function usePotion(itemId) {
   addItem(item.id, -1);
   state.stats.potionsUsed += 1;
   closeModal("potionBagModal");
-  const heal = item.heal === "full" ? active.maxHp - active.currentHp : item.heal;
+  const heal = healingAmount(item, active);
   active.currentHp = clamp(active.currentHp + heal, 0, active.maxHp);
   log(`${active.displayName} recupero ${heal} PS con ${item.name}.`);
   setMessage(`${active.displayName} recupero PS.`);
@@ -507,6 +548,12 @@ function captureWild(ball) {
   if (owned.rarity === "legendary") state.stats.legendaryCaptures += 1;
   if (owned.rarity === "mythical") state.stats.mythicalCaptures += 1;
   state.gold += goldReward;
+  const cardDrop = rollCardDrop(wild, 0.65);
+  if (cardDrop) {
+    addItem(cardDrop.id, 1);
+    rewards.push({ label: "Carta encontrada", value: cardDrop.name, icon: itemIconUrl(cardDrop.id) });
+    log(`Encontraste ${cardDrop.name} al capturar a ${owned.displayName}.`);
+  }
 
   if (!state.activeId || powerScore(owned) > powerScore(getActive())) {
     state.activeId = owned.uid;
@@ -534,16 +581,20 @@ function captureWild(ball) {
   });
 }
 
-function defeatWild() {
+function defeatWild(attacker = getActive()) {
   const wild = state.wild;
-  const active = getActive();
+  const active = attacker || getActive();
+  if (!wild || !active) return;
   const gold = defeatReward(wild);
   const xp = 18 + wild.level * 4 + (wild.shiny ? 120 : 0) + (wild.rarity !== "normal" ? 160 : 0);
+  const cardDrop = rollCardDrop(wild, 1);
   state.gold += gold;
   state.stats.defeats += 1;
-  gainXp(active, xp);
-  log(`Venciste a ${wild.displayName}. +${gold} oro.`);
-  setMessage(`Venciste a ${wild.displayName}.`);
+  if (cardDrop) addItem(cardDrop.id, 1);
+  const xpResult = gainXp(active, xp);
+  log(`Venciste a ${wild.displayName}. +${gold} oro. ${xpResult.text}`);
+  if (cardDrop) log(`Cayo ${cardDrop.name}.`);
+  setMessage(`Venciste a ${wild.displayName}. ${xpResult.text}`);
   state.wild = null;
   showResultModal({
     title: "Victoria",
@@ -553,8 +604,9 @@ function defeatWild() {
     sprite: wild.shiny ? wild.shinySprite : wild.sprite,
     rewards: [
       { label: "Oro", value: `+${gold}` },
-      { label: "Experiencia", value: `+${xp} XP` },
-      { label: "Derrotas", value: `${state.stats.defeats}` }
+      { label: "Experiencia", value: xpResult.resultLabel },
+      { label: "Derrotas", value: `${state.stats.defeats}` },
+      ...(cardDrop ? [{ label: "Carta", value: cardDrop.name, icon: itemIconUrl(cardDrop.id) }] : [])
     ]
   });
 }
@@ -639,7 +691,7 @@ function buyItem(itemId, cost, name) {
 
 function render() {
   const active = getActive();
-  const inventoryText = `${totalBalls()} Balls - ${totalHealingItems()} curas - ${getItem("rareCandy")} caramelos`;
+  const inventoryText = `${totalBalls()} Balls - ${totalHealingItems()} curas - ${getItem("rareCandy")} caramelos - ${totalCards()} cartas`;
   els.gold.textContent = state.gold;
   els.steps.textContent = state.steps;
   els.caughtCount.textContent = state.caught;
@@ -653,6 +705,7 @@ function render() {
   renderLog();
   renderPotionBag();
   renderBallBag();
+  renderCardShop();
   renderAchievements();
   renderMissions();
   els.attackBtn.disabled = !state.wild;
@@ -696,20 +749,23 @@ function renderWild() {
   els.fieldWildSprite.src = wild.shiny ? wild.shinySprite : wild.sprite;
   els.fieldWildSprite.onerror = () => setFallbackSprite(els.fieldWildSprite, wild);
   els.fieldWildSprite.alt = wild.displayName;
-  els.fieldWildName.textContent = wild.displayName;
+  const isNewSpecies = isNewPokedexSpecies(wild);
+  els.fieldWildName.innerHTML = `${wild.displayName}${isNewSpecies ? " <em>NUEVO</em>" : ""}`;
   els.fieldWildLevel.textContent = `Nv. ${wild.level}`;
-  els.fieldWildTags.textContent = `${rarityLabel(wild)}${wild.shiny ? " variocolor - " : " - "}${wild.types.join(" / ")} - PS ${wild.currentHp}/${wild.maxHp}`;
+  els.fieldWildTags.textContent = `${isNewSpecies ? "Nuevo registro - " : ""}${rarityLabel(wild)}${wild.shiny ? " variocolor - " : " - "}${wild.types.join(" / ")} - PS ${wild.currentHp}/${wild.maxHp}`;
   els.wildHpBar.style.width = `${hpPercent(wild)}%`;
-  els.encounterHint.textContent = `${rarityLabel(wild)}: captura estimada con Poke Ball ${Math.round(captureChance(BALLS[0], wild, getActive()) * 100)}%.`;
+  els.encounterHint.textContent = `${isNewSpecies ? "NUEVO en tu Pokedex. " : ""}${rarityLabel(wild)}: captura estimada con Poke Ball ${Math.round(captureChance(BALLS[0], wild, getActive()) * 100)}%.`;
 }
 
 function renderShop() {
   els.ballShopList.innerHTML = "";
   els.potionShopList.innerHTML = "";
   els.itemShopList.innerHTML = "";
+  els.cardShopList.innerHTML = "";
   BALLS.forEach((ball) => els.ballShopList.appendChild(shopButton(ball)));
   POTIONS.forEach((potion) => els.potionShopList.appendChild(shopButton(potion)));
   SHOP_ITEMS.forEach((item) => els.itemShopList.appendChild(shopButton(item)));
+  renderCardShop();
 }
 
 function shopButton(item) {
@@ -718,6 +774,32 @@ function shopButton(item) {
   button.innerHTML = `${itemIconMarkup(item)}<span>${item.name}</span><strong>${item.cost} oro</strong><small>${item.note}</small>`;
   button.addEventListener("click", () => buyItem(item.id, item.cost, item.name));
   return button;
+}
+
+function renderCardShop() {
+  if (!els.cardShopList) return;
+  els.cardShopList.innerHTML = "";
+  CARD_ITEMS.forEach((card) => {
+    const owned = getItem(card.id);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.disabled = owned <= 0;
+    button.innerHTML = `${itemIconMarkup(card)}<span>${card.name} x${owned}</span><strong>${card.value} oro c/u</strong><small>${owned > 0 ? `Vender todo: +${owned * card.value} oro` : "Derrotando Pokemon pueden caer."}</small>`;
+    button.addEventListener("click", () => sellCard(card.id));
+    els.cardShopList.appendChild(button);
+  });
+}
+
+function sellCard(cardId) {
+  const card = CARD_ITEMS.find((item) => item.id === cardId);
+  const owned = getItem(cardId);
+  if (!card || owned <= 0) return;
+  addItem(cardId, -owned);
+  state.gold += owned * card.value;
+  log(`Vendiste ${owned} ${card.name}. +${owned * card.value} oro.`);
+  setMessage(`Vendiste cartas por ${owned * card.value} oro.`);
+  render();
+  save();
 }
 
 function renderBallBag() {
@@ -754,7 +836,7 @@ function renderPotionBag() {
     const button = document.createElement("button");
     button.type = "button";
     button.disabled = active.currentHp >= active.maxHp;
-    button.innerHTML = `${itemIconMarkup(potion)}<span>${potion.name} x${owned}</span><strong>${potion.heal === "full" ? "Full" : `+${potion.heal} PS`}</strong><small>${potion.note}</small>`;
+    button.innerHTML = `${itemIconMarkup(potion)}<span>${potion.name} x${owned}</span><strong>${healingLabel(potion)}</strong><small>${potion.note}</small>`;
     button.addEventListener("click", () => usePotion(potion.id));
     els.potionBagList.appendChild(button);
   });
@@ -999,6 +1081,7 @@ async function showPokemonStats(mon, kind) {
 
     const evolution = await evolutionButton(mon);
     els.statsActions.append(activate, candy);
+    vitaminButtons(mon).forEach((button) => els.statsActions.appendChild(button));
     els.statsActions.appendChild(evolution);
     els.statsActions.appendChild(release);
   }
@@ -1016,6 +1099,42 @@ function useRareCandy(mon) {
   mon.currentHp = mon.maxHp;
   log(`${mon.displayName} subio de Nv. ${before} a Nv. ${mon.level} con Caramelo raro.`);
   setMessage(`${mon.displayName} subio a Nv. ${mon.level}.`);
+  render();
+  save();
+}
+
+function vitaminButtons(mon) {
+  return SHOP_ITEMS.filter((item) => item.stat).map((item) => {
+    const owned = getItem(item.id);
+    const current = Number(mon.statBonus?.[item.stat]) || 0;
+    const capped = current >= item.maxBoost;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${item.name} x${owned}`;
+    button.disabled = owned <= 0 || mon.uid !== state.activeId || capped;
+    button.title = capped ? `${STAT_LABELS[item.stat]} ya esta al maximo de entrenamiento.` : item.note;
+    button.addEventListener("click", () => {
+      useStatItem(mon, item.id);
+      showPokemonStats(mon, "capturado");
+    });
+    return button;
+  });
+}
+
+function useStatItem(mon, itemId) {
+  const item = SHOP_ITEMS.find((entry) => entry.id === itemId && entry.stat);
+  if (!item || !mon || mon.uid !== state.activeId || getItem(item.id) <= 0) return;
+  mon.statBonus = mon.statBonus || {};
+  const current = Number(mon.statBonus[item.stat]) || 0;
+  if (current >= item.maxBoost) return;
+  const hpRatio = mon.currentHp / mon.maxHp;
+  mon.statBonus[item.stat] = clamp(current + item.boost, -0.1, item.maxBoost);
+  mon.stats = scaleStats(mon.baseStats, mon.level, mon.rarity, mon.statBonus);
+  mon.maxHp = mon.stats.hp;
+  mon.currentHp = clamp(Math.ceil(mon.maxHp * hpRatio), 1, mon.maxHp);
+  addItem(item.id, -1);
+  log(`${mon.displayName} uso ${item.name}. ${STAT_LABELS[item.stat]} mejoro.`);
+  setMessage(`${STAT_LABELS[item.stat]} de ${mon.displayName} subio.`);
   render();
   save();
 }
@@ -1065,18 +1184,33 @@ function useBestPotion(active) {
   const available = POTIONS
     .filter((potion) => getItem(potion.id) > 0)
     .sort((a, b) => potionHealValue(a, active) - potionHealValue(b, active));
-  const item = available.find((potion) => potion.heal === "full" || potion.heal >= missing) || available.at(-1);
+  const item = available.find((potion) => healingAmount(potion, active) >= missing) || available.at(-1);
   if (!item) return false;
   addItem(item.id, -1);
   state.stats.potionsUsed += 1;
-  const heal = item.heal === "full" ? missing : Math.min(missing, item.heal);
+  const heal = healingAmount(item, active);
   active.currentHp = clamp(active.currentHp + heal, 0, active.maxHp);
   log(`Auto-pelea uso ${item.name}. ${active.displayName} recupero ${heal} PS.`);
   return true;
 }
 
 function potionHealValue(potion, active) {
-  return potion.heal === "full" ? active.maxHp : potion.heal;
+  if (potion.heal === "full") return active.maxHp;
+  if (potion.healPercent) return Math.ceil(active.maxHp * potion.healPercent);
+  return potion.heal;
+}
+
+function healingAmount(potion, mon) {
+  const missing = mon.maxHp - mon.currentHp;
+  if (potion.heal === "full") return missing;
+  if (potion.healPercent) return Math.min(missing, Math.ceil(mon.maxHp * potion.healPercent));
+  return Math.min(missing, potion.heal);
+}
+
+function healingLabel(potion) {
+  if (potion.heal === "full") return "Full";
+  if (potion.healPercent) return `${Math.round(potion.healPercent * 100)}% PS`;
+  return `+${potion.heal} PS`;
 }
 
 function shouldPauseAutoBattle(mon) {
@@ -1167,13 +1301,13 @@ async function evolvePokemon(mon, option) {
 function captureChance(ball, wild, active) {
   if (!wild || !active) return 0;
   if (ball.id === "masterBall") return 1;
-  const speciesRate = clamp((wild.captureRate || 120) / 255, 0.04, 0.82);
-  const hpFactor = 0.25 + (1 - wild.currentHp / wild.maxHp) * 0.78;
-  const levelFactor = clamp(1 + (active.level - wild.level) * 0.012, 0.42, 1.42);
+  const speciesRate = clamp((wild.captureRate || 140) / 255, 0.08, 0.9);
+  const hpFactor = 0.38 + (1 - wild.currentHp / wild.maxHp) * 0.72;
+  const levelFactor = clamp(1 + (active.level - wild.level) * 0.01, 0.55, 1.35);
   const rarityFactor = rarityCaptureFactor(wild);
   const modifier = ballModifier(ball, wild, active);
   const chance = speciesRate * hpFactor * levelFactor * rarityFactor * modifier;
-  return clamp(chance, wild.rarity === "normal" && !wild.shiny ? 0.03 : 0.01, maxCaptureChance(wild));
+  return clamp(chance, wild.rarity === "normal" && !wild.shiny ? 0.07 : 0.02, maxCaptureChance(wild));
 }
 
 function ballModifier(ball, wild, active) {
@@ -1198,17 +1332,17 @@ function ballModifier(ball, wild, active) {
 }
 
 function rarityCaptureFactor(wild) {
-  if (wild.rarity === "mythical") return wild.shiny ? 0.09 : 0.14;
-  if (wild.rarity === "legendary") return wild.shiny ? 0.11 : 0.18;
-  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.18 : 0.34;
-  return wild.shiny ? 0.42 : 1;
+  if (wild.rarity === "mythical") return wild.shiny ? 0.14 : 0.22;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.17 : 0.28;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.28 : 0.5;
+  return wild.shiny ? 0.55 : 1;
 }
 
 function maxCaptureChance(wild) {
-  if (wild.rarity === "mythical") return wild.shiny ? 0.28 : 0.38;
-  if (wild.rarity === "legendary") return wild.shiny ? 0.32 : 0.46;
-  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.42 : 0.62;
-  return wild.shiny ? 0.68 : 0.9;
+  if (wild.rarity === "mythical") return wild.shiny ? 0.36 : 0.52;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.42 : 0.58;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.5 : 0.72;
+  return wild.shiny ? 0.78 : 0.94;
 }
 
 function createBattlePokemon(data, level, shiny, forcedRarity = null) {
@@ -1415,7 +1549,10 @@ function calcDamage(attacker, defender) {
 }
 
 function gainXp(mon, amount) {
-  if (!mon || mon.level >= MAX_LEVEL) return;
+  if (!mon) return { gained: 0, levels: 0, text: "Sin Pokemon para recibir XP.", resultLabel: "+0 XP" };
+  if (mon.level >= MAX_LEVEL) return { gained: 0, levels: 0, text: `${mon.displayName} ya esta en nivel maximo.`, resultLabel: "Nivel maximo" };
+  const beforeLevel = mon.level;
+  const gained = amount;
   mon.xp += amount;
   while (mon.level < MAX_LEVEL && mon.xp >= xpNeeded(mon.level)) {
     mon.xp -= xpNeeded(mon.level);
@@ -1426,6 +1563,15 @@ function gainXp(mon, amount) {
     log(`${mon.displayName} subio a Nv. ${mon.level}.`);
   }
   if (mon.level >= MAX_LEVEL) mon.xp = 0;
+  const levels = mon.level - beforeLevel;
+  return {
+    gained,
+    levels,
+    text: levels > 0
+      ? `${mon.displayName} gano ${gained} XP y subio ${levels} nivel${levels === 1 ? "" : "es"}.`
+      : `${mon.displayName} gano ${gained} XP.`,
+    resultLabel: levels > 0 ? `+${gained} XP / +${levels} Nv.` : `+${gained} XP`
+  };
 }
 
 function xpNeeded(level) {
@@ -1537,6 +1683,18 @@ function applyRewards(rewards) {
   return { lines, sprite };
 }
 
+function rollCardDrop(mon, multiplier = 1) {
+  if (!mon) return null;
+  const rarityBonus = mon.rarity === "mythical" ? 0.09 : mon.rarity === "legendary" ? 0.07 : PSEUDO_LEGENDARY_IDS.has(mon.apiId) ? 0.045 : 0;
+  const shinyBonus = mon.shiny ? 0.055 : 0;
+  const levelBonus = Math.min(0.08, mon.level / MAX_LEVEL * 0.08);
+  for (const card of [...CARD_ITEMS].reverse()) {
+    const chance = (card.chance + rarityBonus + shinyBonus + levelBonus) * multiplier;
+    if (Math.random() < chance) return card;
+  }
+  return null;
+}
+
 function rewardSummary(rewards) {
   const parts = [];
   if (rewards.gold) parts.push(`${rewards.gold} oro`);
@@ -1548,22 +1706,27 @@ function rewardSummary(rewards) {
 }
 
 function findItem(id) {
-  return BALLS.find((item) => item.id === id) || POTIONS.find((item) => item.id === id) || SHOP_ITEMS.find((item) => item.id === id);
+  return BALLS.find((item) => item.id === id)
+    || POTIONS.find((item) => item.id === id)
+    || SHOP_ITEMS.find((item) => item.id === id)
+    || CARD_ITEMS.find((item) => item.id === id);
 }
 
 function getActive() {
   return state.collection.find((mon) => mon.uid === state.activeId) || state.collection[0];
 }
 
+function isNewPokedexSpecies(mon) {
+  return Boolean(mon && !state.collection.some((owned) => owned.apiId === mon.apiId));
+}
+
 function statMarkup(stats) {
-  const labels = { hp: "PS", attack: "Ataque", defense: "Defensa", spAtk: "At. esp.", spDef: "Def. esp.", speed: "Velocidad" };
-  return Object.entries(labels).map(([key, label]) => `<span>${label}<strong>${stats[key]}</strong></span>`).join("");
+  return Object.entries(STAT_LABELS).map(([key, label]) => `<span>${label}<strong>${stats[key]}</strong></span>`).join("");
 }
 
 function statMarkupForPokemon(mon) {
-  const labels = { hp: "PS", attack: "Ataque", defense: "Defensa", spAtk: "At. esp.", spDef: "Def. esp.", speed: "Velocidad" };
   const neutral = scaleStats(mon.baseStats, mon.level, mon.rarity);
-  return Object.entries(labels).map(([key, label]) => {
+  return Object.entries(STAT_LABELS).map(([key, label]) => {
     const diff = mon.stats[key] - neutral[key];
     const sign = diff > 0 ? "+" : "";
     const className = diff > 0 ? "stat-up" : diff < 0 ? "stat-down" : "";
@@ -1655,6 +1818,44 @@ function setAccountBusy(value, message = "") {
   if (message) els.accountStatus.textContent = message;
 }
 
+async function logoutAccount() {
+  if (!window.confirm("Cerrar sesion y volver a la pantalla de acceso?")) return;
+  try {
+    window.clearTimeout(cloudSaveTimer);
+    if (cloud?.user) await saveCloudState(cloud.user.uid).catch(() => {});
+    if (cloud?.auth) await cloud.auth.signOut();
+  } catch (error) {
+    log(`No se pudo cerrar sesion correctamente: ${error.message}`);
+  }
+  if (cloud) cloud.user = null;
+  localStorage.removeItem(SESSION_KEY);
+  els.adminBtn.classList.add("hidden");
+  state.syncUserId = "";
+  save();
+  document.querySelectorAll(".modal").forEach((modal) => closeModal(modal.id));
+  setMessage("Sesion cerrada.");
+  openAccountModalIfNeeded();
+}
+
+async function resetAccountProgress() {
+  const userId = state.syncUserId || loadSession().userId || cloud?.user?.displayName || "";
+  const accepted = window.confirm("Esto reinicia la partida de esta cuenta: Pokemon, oro, objetos, cartas, logros y misiones vuelven a cero. La cuenta no se borra. Continuar?");
+  if (!accepted) return;
+  suppressCloudSave = true;
+  replaceState(baseState());
+  state.syncUserId = userId;
+  await ensureStarterPokemon();
+  ensureActiveMissions();
+  suppressCloudSave = false;
+  save();
+  if (cloud?.user) await saveCloudState(cloud.user.uid);
+  render();
+  document.querySelectorAll(".modal").forEach((modal) => {
+    if (modal.id !== "accountModal") closeModal(modal.id);
+  });
+  setMessage("Cuenta reiniciada. Nueva aventura lista.");
+}
+
 function initCloud() {
   const config = window.POKERASTRO_FIREBASE_CONFIG || {};
   if (!window.firebase || !config.apiKey || !config.projectId) return;
@@ -1740,7 +1941,7 @@ function pokemonCloudSummary(mon) {
 
 function cloudItemSummary(items) {
   const summary = {};
-  [...BALLS, ...POTIONS, ...SHOP_ITEMS].forEach((item) => {
+  [...BALLS, ...POTIONS, ...SHOP_ITEMS, ...CARD_ITEMS].forEach((item) => {
     summary[item.id] = Number(items[item.id]) || 0;
   });
   return summary;
@@ -1782,10 +1983,75 @@ async function refreshAdminRole(uid) {
 function openAdminModal() {
   currentAdminTarget = null;
   els.adminUserSearch.value = "";
+  els.adminUserList.innerHTML = "<option value=\"\">Cargando jugadores...</option>";
   els.adminUserSummary.innerHTML = "";
-  els.adminStatus.textContent = "Busca un usuario para enviarle un regalo.";
+  els.adminStatus.textContent = "Cargando jugadores...";
   resetAdminGrantForm();
   openModal("adminModal");
+  loadAdminUsers();
+}
+
+async function loadAdminUsers() {
+  if (!cloud?.user) {
+    els.adminStatus.textContent = "Necesitas iniciar sesion como admin.";
+    return;
+  }
+  els.adminRefreshUsersBtn.disabled = true;
+  els.adminStatus.textContent = "Cargando jugadores...";
+  try {
+    const snapshot = await cloud.db.collection("saves").orderBy("updatedAt", "desc").limit(80).get();
+    adminUsers = snapshot.docs.map((doc) => ({ uid: doc.id, ...doc.data() }));
+    renderAdminUserList();
+    els.adminStatus.textContent = adminUsers.length
+      ? `Lista cargada: ${adminUsers.length} jugador${adminUsers.length === 1 ? "" : "es"}.`
+      : "Todavia no hay jugadores guardados.";
+  } catch (error) {
+    els.adminStatus.textContent = `No se pudo cargar la lista: ${error.message}`;
+    adminUsers = [];
+    renderAdminUserList();
+  } finally {
+    els.adminRefreshUsersBtn.disabled = false;
+  }
+}
+
+function renderAdminUserList() {
+  els.adminUserList.innerHTML = "<option value=\"\">Elegir jugador...</option>";
+  adminUsers.forEach((user) => {
+    const option = document.createElement("option");
+    option.value = user.uid;
+    option.textContent = `${user.userId || user.uid} - ${user.gold || 0} oro - Nv. ${user.highestLevel || 1}`;
+    els.adminUserList.appendChild(option);
+  });
+}
+
+function renderAdminItemSelect() {
+  els.adminItemSelect.innerHTML = "<option value=\"\">Sin item extra</option>";
+  [
+    ["Balls", BALLS],
+    ["Curas", POTIONS],
+    ["Objetos", SHOP_ITEMS],
+    ["Cartas", CARD_ITEMS]
+  ].forEach(([groupName, items]) => {
+    const group = document.createElement("optgroup");
+    group.label = groupName;
+    items.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.name;
+      group.appendChild(option);
+    });
+    els.adminItemSelect.appendChild(group);
+  });
+}
+
+function adminSelectUser() {
+  const uid = els.adminUserList.value;
+  const user = adminUsers.find((item) => item.uid === uid);
+  if (!user) return;
+  currentAdminTarget = user;
+  els.adminUserSearch.value = user.userId || "";
+  renderAdminSummary(user);
+  els.adminStatus.textContent = `Usuario elegido: ${user.userId || user.uid}.`;
 }
 
 async function adminSearchUser() {
@@ -1805,6 +2071,11 @@ async function adminSearchUser() {
     }
     const doc = query.docs[0];
     currentAdminTarget = { uid: doc.id, ...doc.data() };
+    if (!adminUsers.some((user) => user.uid === currentAdminTarget.uid)) {
+      adminUsers.unshift(currentAdminTarget);
+      renderAdminUserList();
+    }
+    els.adminUserList.value = currentAdminTarget.uid;
     renderAdminSummary(currentAdminTarget);
     els.adminStatus.textContent = `Usuario encontrado: ${currentAdminTarget.userId}.`;
   } catch (error) {
@@ -1832,19 +2103,26 @@ async function adminSendGrant() {
     els.adminStatus.textContent = "Primero busca un usuario.";
     return;
   }
-  const gold = numberInput(els.adminGrantGold);
-  const masterBall = numberInput(els.adminGrantMasterBall);
-  const ultraBall = numberInput(els.adminGrantUltraBall);
-  const rareCandy = numberInput(els.adminGrantRareCandy);
-  if (!gold && !masterBall && !ultraBall && !rareCandy) {
-    els.adminStatus.textContent = "Ingresa al menos un premio.";
+  const gold = signedNumberInput(els.adminGrantGold);
+  const masterBall = signedNumberInput(els.adminGrantMasterBall);
+  const ultraBall = signedNumberInput(els.adminGrantUltraBall);
+  const rareCandy = signedNumberInput(els.adminGrantRareCandy);
+  const extraItemId = els.adminItemSelect.value;
+  const extraItemAmount = signedNumberInput(els.adminItemAmount);
+  if (!gold && !masterBall && !ultraBall && !rareCandy && !extraItemAmount) {
+    els.adminStatus.textContent = "Ingresa al menos un ajuste positivo o negativo.";
+    return;
+  }
+  if (extraItemAmount && !extraItemId) {
+    els.adminStatus.textContent = "Elegi el item extra o deja la cantidad en 0.";
     return;
   }
   const items = {};
   if (masterBall) items.masterBall = masterBall;
   if (ultraBall) items.ultraBall = ultraBall;
   if (rareCandy) items.rareCandy = rareCandy;
-  els.adminStatus.textContent = "Enviando regalo...";
+  if (extraItemId && extraItemAmount) items[extraItemId] = (items[extraItemId] || 0) + extraItemAmount;
+  els.adminStatus.textContent = "Enviando ajuste...";
   try {
     await cloud.db.collection("grants").doc(currentAdminTarget.uid).set({
       grantId: `admin-${Date.now()}`,
@@ -1854,7 +2132,7 @@ async function adminSendGrant() {
       targetUserId: currentAdminTarget.userId,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    els.adminStatus.textContent = "Regalo enviado. Se aplicara cuando el jugador vuelva a entrar.";
+    els.adminStatus.textContent = "Ajuste enviado. Se aplicara cuando el jugador vuelva a entrar.";
     resetAdminGrantForm();
   } catch (error) {
     els.adminStatus.textContent = `No se pudo enviar: ${error.message}`;
@@ -1866,10 +2144,12 @@ function resetAdminGrantForm() {
   els.adminGrantMasterBall.value = 0;
   els.adminGrantUltraBall.value = 0;
   els.adminGrantRareCandy.value = 0;
+  els.adminItemSelect.value = "";
+  els.adminItemAmount.value = 0;
 }
 
-function numberInput(input) {
-  return Math.max(0, Math.floor(Number(input.value) || 0));
+function signedNumberInput(input) {
+  return Math.trunc(Number(input.value) || 0);
 }
 
 function normalizeUserId(value) {
@@ -1889,8 +2169,8 @@ function applyAccountGrants(grants) {
     const gold = Number(grant.gold) || 0;
     const amount = Number(grant.amount) || 0;
     if (gold) {
-      state.gold += gold;
-      applied.push(`${gold} oro`);
+      state.gold = Math.max(0, state.gold + gold);
+      applied.push(`${gold > 0 ? "+" : ""}${gold} oro`);
     }
     if (grant.itemId && amount) {
       addItem(grant.itemId, amount);
@@ -1919,7 +2199,18 @@ function saveSession(userId) {
 }
 
 function loadState() {
-  const base = {
+  const base = baseState();
+  try {
+    const savedKey = [SAVE_KEY, ...OLD_SAVE_KEYS].find((key) => localStorage.getItem(key));
+    const saved = savedKey ? JSON.parse(localStorage.getItem(savedKey)) : null;
+    return saved ? { ...base, ...saved } : base;
+  } catch {
+    return base;
+  }
+}
+
+function baseState() {
+  return {
     gold: 120,
     steps: 0,
     caught: 0,
@@ -1936,13 +2227,6 @@ function loadState() {
     activeMissions: [],
     log: []
   };
-  try {
-    const savedKey = [SAVE_KEY, ...OLD_SAVE_KEYS].find((key) => localStorage.getItem(key));
-    const saved = savedKey ? JSON.parse(localStorage.getItem(savedKey)) : null;
-    return saved ? { ...base, ...saved } : base;
-  } catch {
-    return base;
-  }
 }
 
 function upgradeState(raw) {
@@ -2002,6 +2286,9 @@ function defaultItems() {
     items[potion.id] = 0;
   });
   SHOP_ITEMS.forEach((item) => {
+    items[item.id] = 0;
+  });
+  CARD_ITEMS.forEach((item) => {
     items[item.id] = 0;
   });
   items.pokeBall = 6;
@@ -2088,6 +2375,10 @@ function totalHealingItems() {
   return POTIONS.reduce((sum, potion) => sum + getItem(potion.id), 0);
 }
 
+function totalCards() {
+  return CARD_ITEMS.reduce((sum, card) => sum + getItem(card.id), 0);
+}
+
 function getItem(id) {
   return state.items[id] || 0;
 }
@@ -2118,7 +2409,14 @@ function itemIconMarkup(item) {
 }
 
 function itemIconUrl(id) {
+  if (CARD_ITEMS.some((card) => card.id === id)) return cardIconUrl(id);
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${ITEM_SLUGS[id] || id}.png`;
+}
+
+function cardIconUrl(id) {
+  const fill = id === "cardLegend" ? "#facc15" : id === "cardHolo" ? "#67e8f9" : id === "cardRare" ? "#c084fc" : "#94a3b8";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="14" y="6" width="36" height="52" rx="5" fill="#0f172a" stroke="${fill}" stroke-width="4"/><circle cx="32" cy="28" r="11" fill="${fill}"/><path d="M21 45h22" stroke="#e5e7eb" stroke-width="4" stroke-linecap="round"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function setMessage(message) {

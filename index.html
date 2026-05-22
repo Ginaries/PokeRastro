@@ -19,6 +19,10 @@
             <span><strong id="steps">0</strong> pasos</span>
             <span><strong id="caughtCount">0</strong> capturas</span>
           </div>
+          <div class="session-actions" aria-label="Sesion">
+            <button id="logoutBtn" type="button">Salir</button>
+            <button id="resetAccountBtn" class="danger-button" type="button">Resetear</button>
+          </div>
         </header>
 
         <div class="route-toolbar" aria-label="Area de captura">
@@ -148,6 +152,8 @@
         <div class="shop-grid" id="potionShopList"></div>
         <h3>Objetos</h3>
         <div class="shop-grid" id="itemShopList"></div>
+        <h3>Cartas</h3>
+        <div class="shop-grid" id="cardShopList"></div>
       </div>
     </div>
 
@@ -300,29 +306,44 @@
             <input id="adminUserSearch" type="text" placeholder="jugador-001">
           </label>
           <button id="adminSearchBtn" class="primary-action" type="button">Buscar</button>
+          <button id="adminRefreshUsersBtn" type="button">Actualizar lista</button>
+          <label>
+            Jugadores
+            <select id="adminUserList"></select>
+          </label>
         </div>
         <div id="adminUserSummary" class="admin-summary"></div>
         <div class="admin-grid">
           <label>
-            Oro
-            <input id="adminGrantGold" type="number" min="0" value="0">
+            Oro (+/-)
+            <input id="adminGrantGold" type="number" value="0">
           </label>
           <label>
-            Master Ball
-            <input id="adminGrantMasterBall" type="number" min="0" value="0">
+            Master Ball (+/-)
+            <input id="adminGrantMasterBall" type="number" value="0">
           </label>
           <label>
-            Ultra Ball
-            <input id="adminGrantUltraBall" type="number" min="0" value="0">
+            Ultra Ball (+/-)
+            <input id="adminGrantUltraBall" type="number" value="0">
           </label>
           <label>
-            Caramelo raro
-            <input id="adminGrantRareCandy" type="number" min="0" value="0">
+            Caramelo raro (+/-)
+            <input id="adminGrantRareCandy" type="number" value="0">
           </label>
         </div>
-        <p class="modal-subtitle" id="adminStatus">Busca un usuario para enviarle un regalo.</p>
+        <div class="admin-grid admin-item-adjust">
+          <label>
+            Item extra
+            <select id="adminItemSelect"></select>
+          </label>
+          <label>
+            Cantidad (+/-)
+            <input id="adminItemAmount" type="number" value="0">
+          </label>
+        </div>
+        <p class="modal-subtitle" id="adminStatus">Elegir un usuario para enviar ajustes.</p>
         <div class="stats-actions">
-          <button id="adminGrantBtn" class="primary-action" type="button">Enviar regalo</button>
+          <button id="adminGrantBtn" class="primary-action" type="button">Enviar ajuste</button>
         </div>
       </div>
     </div>
