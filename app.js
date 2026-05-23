@@ -24,6 +24,26 @@ const POKEMON_TYPES = [
   "normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
   "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"
 ];
+const TYPE_EFFECTIVENESS = {
+  normal: { rock: 0.5, ghost: 0, steel: 0.5 },
+  fire: { fire: 0.5, water: 0.5, grass: 2, ice: 2, bug: 2, rock: 0.5, dragon: 0.5, steel: 2 },
+  water: { fire: 2, water: 0.5, grass: 0.5, ground: 2, rock: 2, dragon: 0.5 },
+  grass: { fire: 0.5, water: 2, grass: 0.5, poison: 0.5, ground: 2, flying: 0.5, bug: 0.5, rock: 2, dragon: 0.5, steel: 0.5 },
+  electric: { water: 2, grass: 0.5, electric: 0.5, ground: 0, flying: 2, dragon: 0.5 },
+  ice: { fire: 0.5, water: 0.5, grass: 2, ice: 0.5, ground: 2, flying: 2, dragon: 2, steel: 0.5 },
+  fighting: { normal: 2, ice: 2, poison: 0.5, flying: 0.5, psychic: 0.5, bug: 0.5, rock: 2, ghost: 0, dark: 2, steel: 2, fairy: 0.5 },
+  poison: { grass: 2, poison: 0.5, ground: 0.5, rock: 0.5, ghost: 0.5, steel: 0, fairy: 2 },
+  ground: { fire: 2, grass: 0.5, electric: 2, poison: 2, flying: 0, bug: 0.5, rock: 2, steel: 2 },
+  flying: { grass: 2, electric: 0.5, fighting: 2, bug: 2, rock: 0.5, steel: 0.5 },
+  psychic: { fighting: 2, poison: 2, psychic: 0.5, dark: 0, steel: 0.5 },
+  bug: { fire: 0.5, grass: 2, fighting: 0.5, poison: 0.5, flying: 0.5, psychic: 2, ghost: 0.5, dark: 2, steel: 0.5, fairy: 0.5 },
+  rock: { fire: 2, ice: 2, fighting: 0.5, ground: 0.5, flying: 2, bug: 2, steel: 0.5 },
+  ghost: { normal: 0, psychic: 2, ghost: 2, dark: 0.5 },
+  dragon: { dragon: 2, steel: 0.5, fairy: 0 },
+  dark: { fighting: 0.5, psychic: 2, ghost: 2, dark: 0.5, fairy: 0.5 },
+  steel: { fire: 0.5, water: 0.5, electric: 0.5, ice: 2, rock: 2, steel: 0.5, fairy: 2 },
+  fairy: { fire: 0.5, fighting: 2, poison: 0.5, dragon: 2, dark: 2, steel: 0.5 }
+};
 const CAPTURE_AREAS = Array.from({ length: MAX_LEVEL / 10 }, (_, index) => {
   const min = index * 10 + 1;
   return { id: index, name: `Area ${index + 1}`, min, max: min + 9 };
@@ -69,26 +89,26 @@ const BALLS = [
   { id: "greatBall", name: "Great Ball", cost: 200, mod: 1.45, note: "Mejora general confiable." },
   { id: "ultraBall", name: "Ultra Ball", cost: 500, mod: 2.15, note: "Fuerte contra casi todo." },
   { id: "masterBall", name: "Master Ball", cost: 7500, mod: 999, note: "Captura garantizada." },
-  { id: "premierBall", name: "Premier Ball", cost: 70, mod: 1.08, note: "Ligero bonus elegante." },
-  { id: "healBall", name: "Heal Ball", cost: 85, mod: 1.1, note: "Captura y cura al nuevo." },
+  { id: "premierBall", name: "Premier Ball", cost: 70, mod: 1.08, note: "Mejor si es nuevo para tu Pokedex." },
+  { id: "healBall", name: "Heal Ball", cost: 85, mod: 1.1, note: "Mejor con objetivos heridos y cura al nuevo." },
   { id: "netBall", name: "Net Ball", cost: 190, mod: 1.05, note: "Muy buena contra agua o bicho." },
   { id: "nestBall", name: "Nest Ball", cost: 175, mod: 1.0, note: "Mejor contra niveles bajos." },
   { id: "repeatBall", name: "Repeat Ball", cost: 210, mod: 1.05, note: "Mejor si ya lo tenias." },
   { id: "timerBall", name: "Timer Ball", cost: 230, mod: 1.0, note: "Sube con turnos." },
   { id: "quickBall", name: "Quick Ball", cost: 310, mod: 1.0, note: "Muy fuerte al inicio." },
-  { id: "duskBall", name: "Dusk Ball", cost: 240, mod: 1.65, note: "Buena en esta ruta boscosa." },
+  { id: "duskBall", name: "Dusk Ball", cost: 240, mod: 1.65, note: "Buena en ruta boscosa; mejor contra oscuro o fantasma." },
   { id: "diveBall", name: "Dive Ball", cost: 190, mod: 0.9, note: "Muy buena contra agua." },
-  { id: "luxuryBall", name: "Luxury Ball", cost: 320, mod: 1.05, note: "Mas oro al capturar." },
+  { id: "luxuryBall", name: "Luxury Ball", cost: 320, mod: 1.05, note: "Mas oro al capturar; premio jugoso." },
   { id: "levelBall", name: "Level Ball", cost: 260, mod: 0.85, note: "Escala si le superas nivel." },
   { id: "lureBall", name: "Lure Ball", cost: 205, mod: 0.9, note: "Muy buena contra agua." },
-  { id: "moonBall", name: "Moon Ball", cost: 260, mod: 1.35, note: "Buen bonus mistico." },
-  { id: "friendBall", name: "Friend Ball", cost: 210, mod: 1.0, note: "Buen trato al capturado." },
-  { id: "loveBall", name: "Love Ball", cost: 220, mod: 1.25, note: "Bonus estable." },
+  { id: "moonBall", name: "Moon Ball", cost: 260, mod: 1.35, note: "Mejor contra hada, psiquico, fantasma u oscuro." },
+  { id: "friendBall", name: "Friend Ball", cost: 210, mod: 1.0, note: "Mejor si comparte tipo con tu activo y cura al nuevo." },
+  { id: "loveBall", name: "Love Ball", cost: 220, mod: 1.25, note: "Mejor si hay afinidad de especie o tipo." },
   { id: "heavyBall", name: "Heavy Ball", cost: 250, mod: 0.85, note: "Mejor contra pesos pesados." },
   { id: "fastBall", name: "Fast Ball", cost: 245, mod: 0.85, note: "Mejor contra veloces." },
   { id: "dreamBall", name: "Dream Ball", cost: 420, mod: 1.8, note: "Muy buena contra raros." },
   { id: "beastBall", name: "Beast Ball", cost: 520, mod: 0.8, note: "Dificil, pero sube contra raros." },
-  { id: "safariBall", name: "Safari Ball", cost: 170, mod: 1.1, note: "Solida para la ruta." },
+  { id: "safariBall", name: "Safari Ball", cost: 170, mod: 1.1, note: "Solida contra comunes de ruta." },
   { id: "sportBall", name: "Sport Ball", cost: 195, mod: 1.1, note: "Mejor contra bicho." },
   { id: "cherishBall", name: "Cherish Ball", cost: 1100, mod: 2.35, note: "Cara y potente." }
 ];
@@ -527,27 +547,27 @@ function attack(options = {}) {
   const wild = state.wild;
   if (!active || !wild) return;
 
-  const playerDamage = calcDamage(active, wild);
-  wild.currentHp = clamp(wild.currentHp - playerDamage, 0, wild.maxHp);
+  const playerHit = damageRoll(active, wild);
+  wild.currentHp = clamp(wild.currentHp - playerHit.amount, 0, wild.maxHp);
   animate(els.fieldActiveSprite, "lunge");
   animate(els.fieldWildSprite, "hit");
-  showDamage(els.wildDamagePop, playerDamage);
-  log(`${active.displayName} golpeo por ${playerDamage}.`);
+  showDamage(els.wildDamagePop, playerHit.amount);
+  log(`${active.displayName} golpeo por ${playerHit.amount}${effectivenessLogSuffix(playerHit)}.`);
 
   if (wild.currentHp <= 0) {
     defeatWild(active, options);
   } else {
     wild.turns += 1;
-    const enemyDamage = calcDamage(wild, active);
-    active.currentHp = clamp(active.currentHp - enemyDamage, 0, active.maxHp);
+    const enemyHit = damageRoll(wild, active);
+    active.currentHp = clamp(active.currentHp - enemyHit.amount, 0, active.maxHp);
     animate(els.fieldWildSprite, "lunge");
     animate(els.fieldActiveSprite, "hit");
-    showDamage(els.activeDamagePop, enemyDamage);
-    log(`${wild.displayName} contraataco por ${enemyDamage}.`);
+    showDamage(els.activeDamagePop, enemyHit.amount);
+    log(`${wild.displayName} contraataco por ${enemyHit.amount}${effectivenessLogSuffix(enemyHit)}.`);
     if (active.currentHp <= 0) {
       sendToPokemonCenter(`${active.displayName} se debilito. Pierdes la chance de capturarlo.`);
     } else {
-      setMessage(`${active.displayName} golpeo. ${wild.displayName} contraataco.`);
+      setMessage(`${active.displayName} golpeo${effectivenessMessage(playerHit)} ${wild.displayName} contraataco${effectivenessMessage(enemyHit)}`);
     }
   }
   render();
@@ -582,12 +602,13 @@ function throwBall(ballId) {
   } else {
     log(`${wild.displayName} escapo de la ${ball.name}.`);
     wild.turns += 1;
-    const damage = calcDamage(wild, active);
-    active.currentHp = clamp(active.currentHp - damage, 0, active.maxHp);
+    const hit = damageRoll(wild, active);
+    active.currentHp = clamp(active.currentHp - hit.amount, 0, active.maxHp);
     animate(els.fieldWildSprite, "lunge");
     animate(els.fieldActiveSprite, "hit");
-    showDamage(els.activeDamagePop, damage);
-    setMessage(`${wild.displayName} escapo y contraataco.`);
+    showDamage(els.activeDamagePop, hit.amount);
+    log(`${wild.displayName} contraataco por ${hit.amount}${effectivenessLogSuffix(hit)}.`);
+    setMessage(`${wild.displayName} escapo y contraataco${effectivenessMessage(hit)}`);
     if (active.currentHp <= 0) {
       sendToPokemonCenter(`${active.displayName} no resistio el contraataque.`);
     }
@@ -626,11 +647,15 @@ function captureWild(ball) {
   owned.currentHp = owned.maxHp;
   if (ball.id === "healBall" || ball.id === "friendBall") owned.currentHp = owned.maxHp;
   const duplicate = findWeakestDuplicate(owned);
+  const baseGoldReward = baseCaptureReward(wild);
   const goldReward = captureReward(wild, ball);
   const rewards = [
     { label: "Oro", value: `+${goldReward}` },
     { label: "Captura", value: `${owned.displayName} Nv. 1` }
   ];
+  if (ball.id === "luxuryBall") {
+    rewards.splice(1, 0, { label: "Bono Luxury", value: `+${goldReward - baseGoldReward} oro` });
+  }
   state.collection.push(owned);
   state.caught += 1;
   state.stats.captures += 1;
@@ -855,7 +880,7 @@ function renderWild() {
   els.fieldWildLevel.textContent = `Nv. ${wild.level}`;
   els.fieldWildTags.textContent = `${isNewSpecies ? "Nuevo registro - " : ""}${rarityLabel(wild)}${wild.shiny ? " variocolor - " : " - "}${wild.types.join(" / ")} - PS ${wild.currentHp}/${wild.maxHp}`;
   els.wildHpBar.style.width = `${hpPercent(wild)}%`;
-  els.encounterHint.textContent = `${isNewSpecies ? "NUEVO en tu Pokedex. " : ""}${rarityLabel(wild)}: captura estimada con Poke Ball ${Math.round(captureChance(BALLS[0], wild, getActive()) * 100)}%.`;
+  els.encounterHint.textContent = `${isNewSpecies ? "NUEVO en tu Pokedex. " : ""}${rarityLabel(wild)} con PS ${captureHpLabel(wild)}: Poke Ball ${captureChancePercent(BALLS[0], wild, getActive())}%. Bajar PS sube la chance.`;
 }
 
 function renderShop() {
@@ -1004,13 +1029,13 @@ function renderBallBag() {
     els.capturePreview.textContent = "Sin encuentro activo.";
     return;
   }
-  els.capturePreview.textContent = `${wild.displayName}: PS ${wild.currentHp}/${wild.maxHp}. Legendarios y miticos resisten mas.`;
+  els.capturePreview.textContent = `${wild.displayName}: PS ${wild.currentHp}/${wild.maxHp} (${captureHpLabel(wild)}). Menos PS y una Ball adecuada aumentan la captura.`;
   BALLS.forEach((ball) => {
     const owned = getItem(ball.id);
     if (owned <= 0) return;
     const button = document.createElement("button");
     button.type = "button";
-    const chance = ball.id === "masterBall" ? 100 : Math.round(captureChance(ball, wild, getActive()) * 100);
+    const chance = captureChancePercent(ball, wild, getActive());
     button.innerHTML = `${itemIconMarkup(ball)}<span>${ball.name} x${owned}</span><strong>${chance}% captura</strong><small>${ball.note}</small>`;
     button.addEventListener("click", () => throwBall(ball.id));
     els.ballBagList.appendChild(button);
@@ -2007,25 +2032,46 @@ async function evolvePokemon(mon, option) {
 }
 
 function captureChance(ball, wild, active) {
-  if (!wild || !active) return 0;
+  if (!ball || !wild || !active) return 0;
   if (ball.id === "masterBall") return 1;
   const speciesRate = clamp((wild.captureRate || 140) / 255, 0.08, 0.9);
-  const hpFactor = 0.38 + (1 - wild.currentHp / wild.maxHp) * 0.72;
+  const hpFactor = hpCaptureFactor(wild);
   const levelFactor = clamp(1 + (active.level - wild.level) * 0.01, 0.55, 1.35);
   const rarityFactor = rarityCaptureFactor(wild);
   const modifier = ballModifier(ball, wild, active);
   const chance = speciesRate * hpFactor * levelFactor * rarityFactor * modifier;
-  return clamp(chance, wild.rarity === "normal" && !wild.shiny ? 0.07 : 0.02, maxCaptureChance(wild));
+  return clamp(chance, minCaptureChance(wild), maxCaptureChance(wild));
+}
+
+function hpCaptureFactor(wild) {
+  const hpRatio = wildHpRatio(wild);
+  let factor = 0.28 + ((1 - hpRatio) ** 1.18) * 1.28;
+  if (hpRatio <= 0.5) factor += 0.15;
+  if (hpRatio <= 0.25) factor += 0.22;
+  if (hpRatio <= 0.1) factor += 0.2;
+  return clamp(factor, 0.28, 1.75);
+}
+
+function wildHpRatio(wild) {
+  return clamp((wild?.currentHp || 0) / Math.max(1, wild?.maxHp || 1), 0.01, 1);
 }
 
 function ballModifier(ball, wild, active) {
+  const hpRatio = wildHpRatio(wild);
   let mod = ball.mod;
   if (ball.id === "quickBall") mod = wild.turns <= 1 ? 3.2 : 0.8;
   if (ball.id === "timerBall") mod = Math.min(3.5, 0.75 + wild.turns * 0.28);
-  if (ball.id === "netBall" && hasAnyType(wild, ["water", "bug"])) mod = 2.7;
-  if (ball.id === "diveBall" && hasAnyType(wild, ["water"])) mod = 2.55;
-  if (ball.id === "lureBall" && hasAnyType(wild, ["water"])) mod = 2.55;
-  if (ball.id === "sportBall" && hasAnyType(wild, ["bug"])) mod = 2.45;
+  if (ball.id === "premierBall" && isNewPokedexSpecies(wild)) mod = 1.45;
+  if (ball.id === "healBall") mod = hpRatio <= 0.35 ? 1.55 : hpRatio <= 0.65 ? 1.25 : ball.mod;
+  if (ball.id === "netBall" && hasAnyType(wild, ["water", "bug"])) mod = 3.1;
+  if (ball.id === "diveBall" && hasAnyType(wild, ["water"])) mod = 3.0;
+  if (ball.id === "lureBall" && hasAnyType(wild, ["water"])) mod = 2.95;
+  if (ball.id === "sportBall" && hasAnyType(wild, ["bug"])) mod = 2.85;
+  if (ball.id === "duskBall") mod = hasAnyType(wild, ["dark", "ghost"]) ? 3.0 : 1.85;
+  if (ball.id === "moonBall" && hasAnyType(wild, ["fairy", "psychic", "ghost", "dark"])) mod = 2.75;
+  if (ball.id === "friendBall") mod = sharesAnyType(wild, active) ? 1.75 : isNewPokedexSpecies(wild) ? 1.35 : 1.05;
+  if (ball.id === "loveBall") mod = wild.apiId === active.apiId ? 3.0 : sharesAnyType(wild, active) ? 1.9 : ball.mod;
+  if (ball.id === "safariBall") mod = wild.rarity === "normal" && !wild.shiny ? (hasAnyType(wild, ["normal", "grass", "bug", "ground"]) ? 1.85 : 1.35) : 0.95;
   if (ball.id === "nestBall") mod = wild.level < 20 ? 2.75 : wild.level < 35 ? 1.85 : 0.8;
   if (ball.id === "repeatBall" && state.collection.some((mon) => mon.apiId === wild.apiId)) mod = 2.65;
   if (ball.id === "levelBall") {
@@ -2047,10 +2093,17 @@ function rarityCaptureFactor(wild) {
 }
 
 function maxCaptureChance(wild) {
-  if (wild.rarity === "mythical") return wild.shiny ? 0.36 : 0.52;
-  if (wild.rarity === "legendary") return wild.shiny ? 0.42 : 0.58;
-  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.5 : 0.72;
-  return wild.shiny ? 0.78 : 0.94;
+  if (wild.rarity === "mythical") return wild.shiny ? 0.42 : 0.58;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.48 : 0.64;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.58 : 0.78;
+  return wild.shiny ? 0.86 : 0.97;
+}
+
+function minCaptureChance(wild) {
+  if (wild.rarity === "mythical") return wild.shiny ? 0.01 : 0.015;
+  if (wild.rarity === "legendary") return wild.shiny ? 0.012 : 0.018;
+  if (PSEUDO_LEGENDARY_IDS.has(wild.apiId)) return wild.shiny ? 0.02 : 0.035;
+  return wild.shiny ? 0.04 : 0.05;
 }
 
 function createBattlePokemon(data, level, shiny, forcedRarity = null) {
@@ -2289,10 +2342,52 @@ async function pokemonIdsByType(type) {
 }
 
 function calcDamage(attacker, defender) {
+  return damageRoll(attacker, defender).amount;
+}
+
+function damageRoll(attacker, defender) {
   const offense = Math.max(attacker.stats.attack, attacker.stats.spAtk);
   const defense = Math.max(8, Math.floor((defender.stats.defense + defender.stats.spDef) / 2));
   const base = 8 + attacker.level * 1.35 + offense * 0.4 - defense * 0.18;
-  return Math.max(3, Math.floor(base * (0.84 + Math.random() * 0.32)));
+  const profile = typeAttackProfile(attacker, defender);
+  const amount = Math.max(2, Math.floor(base * profile.multiplier * (0.84 + Math.random() * 0.32)));
+  return { amount, ...profile };
+}
+
+function typeAttackProfile(attacker, defender) {
+  const attackTypes = attacker?.types?.length ? attacker.types : ["normal"];
+  const profiles = attackTypes.map((type) => ({
+    attackType: type,
+    multiplier: typeEffectiveness(type, defender)
+  }));
+  profiles.sort((a, b) => b.multiplier - a.multiplier);
+  return profiles[0] || { attackType: "normal", multiplier: 1 };
+}
+
+function typeEffectiveness(attackType, defender) {
+  const chart = TYPE_EFFECTIVENESS[attackType] || {};
+  const raw = (defender?.types?.length ? defender.types : ["normal"])
+    .reduce((multiplier, defenseType) => multiplier * (chart[defenseType] ?? 1), 1);
+  return clamp(raw, 0.35, 2.5);
+}
+
+function effectivenessLogSuffix(hit) {
+  const label = effectivenessLabel(hit);
+  return label ? ` (${hit.attackType}: ${label})` : "";
+}
+
+function effectivenessMessage(hit) {
+  if (!hit) return ".";
+  if (hit.multiplier >= 1.75) return ". Fue super efectivo.";
+  if (hit.multiplier <= 0.55) return ". El rival lo resistio.";
+  return ".";
+}
+
+function effectivenessLabel(hit) {
+  if (!hit) return "";
+  if (hit.multiplier >= 1.75) return "super efectivo";
+  if (hit.multiplier <= 0.55) return "resistido";
+  return "";
 }
 
 function gainXp(mon, amount) {
@@ -2368,12 +2463,19 @@ function powerScore(mon) {
 }
 
 function captureReward(mon, ball) {
+  let reward = baseCaptureReward(mon);
+  if (ball.id === "luxuryBall") {
+    reward = Math.round(reward * 2.4 + Math.max(90, levelGoldValue(mon.level) * 0.8));
+  }
+  return reward;
+}
+
+function baseCaptureReward(mon) {
   let reward = 25 + levelGoldValue(mon.level);
   if (PSEUDO_LEGENDARY_IDS.has(mon.apiId)) reward += Math.round(levelGoldValue(mon.level) * 0.7) + 120;
   if (mon.shiny) reward += Math.round(levelGoldValue(mon.level) * 1.2) + 180;
   if (mon.rarity === "legendary") reward += Math.round(levelGoldValue(mon.level) * 1.6) + 420;
   if (mon.rarity === "mythical") reward += Math.round(levelGoldValue(mon.level) * 2.1) + 650;
-  if (ball.id === "luxuryBall") reward = Math.round(reward * 1.45);
   return reward;
 }
 
@@ -3131,7 +3233,12 @@ function rarityText(mon) {
 }
 
 function hasAnyType(mon, types) {
-  return mon.types.some((type) => types.includes(type));
+  return (mon?.types || []).some((type) => types.includes(type));
+}
+
+function sharesAnyType(a, b) {
+  const otherTypes = new Set(b?.types || []);
+  return (a?.types || []).some((type) => otherTypes.has(type));
 }
 
 function totalBalls() {
@@ -3156,6 +3263,17 @@ function addItem(id, amount) {
 
 function hpPercent(mon) {
   return clamp(Math.round((mon.currentHp / mon.maxHp) * 100), 0, 100);
+}
+
+function captureChancePercent(ball, wild, active) {
+  return Math.round(captureChance(ball, wild, active) * 100);
+}
+
+function captureHpLabel(mon) {
+  const ratio = wildHpRatio(mon);
+  if (ratio <= 0.25) return "rojo";
+  if (ratio <= 0.5) return "amarillo";
+  return "verde";
 }
 
 function setFallbackSprite(img, mon) {
