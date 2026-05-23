@@ -180,8 +180,9 @@ h3 {
 }
 
 .route-toolbar {
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 260px) minmax(0, 1fr) minmax(260px, 360px);
+  align-items: start;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px;
@@ -203,6 +204,44 @@ h3 {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+  line-height: 1.35;
+}
+
+.area-rare-panel {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 217, 102, 0.35);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 217, 102, 0.14), rgba(0, 0, 0, 0.18));
+  display: grid;
+  gap: 6px;
+}
+
+.area-rare-panel strong {
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+}
+
+.area-rare-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.area-rare-list img {
+  width: 46px;
+  height: 46px;
+  justify-self: center;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: brightness(0) saturate(0) drop-shadow(0 0 8px rgba(255, 217, 102, 0.5));
+  opacity: 0.86;
+}
+
+.area-rare-list img.discovered {
+  filter: drop-shadow(0 0 8px rgba(255, 217, 102, 0.65));
+  opacity: 1;
 }
 
 .battlefield {
@@ -587,7 +626,6 @@ h3 {
 .shop-grid,
 .bag-grid,
 .stats-actions,
-.auto-config,
 .pokedex-filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -599,13 +637,75 @@ h3 {
   margin-bottom: 12px;
 }
 
-.auto-config {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.auto-action-list {
+  display: grid;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
+.auto-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.auto-action-row.no-control {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.auto-action-card {
+  min-height: 76px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  text-align: left;
+}
+
+.auto-action-card span,
+.auto-action-card small {
+  display: block;
+}
+
+.auto-action-card strong {
+  align-self: start;
+  font-size: 0.78rem;
+}
+
+.auto-action-card small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.auto-action-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 217, 102, 0.18);
+}
+
+.auto-action-control {
+  display: grid;
+  align-items: stretch;
+}
+
+.auto-action-control label {
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.16);
+  display: grid;
+  gap: 6px;
+}
+
+.auto-action-control small {
+  color: var(--muted);
+  line-height: 1.25;
+}
+
 .pokedex-filters label,
-.auto-config label,
+.auto-action-control label,
 .sync-form label {
   display: grid;
   gap: 5px;
@@ -618,7 +718,7 @@ h3 {
 }
 
 .sync-form label,
-.auto-config label,
+.auto-action-control label,
 .admin-grid label {
   color: var(--muted);
   font-size: 0.82rem;
@@ -1016,10 +1116,26 @@ h3 {
   .topbar,
   .side-panel,
   .stats-profile,
-  .auto-config,
   .pokedex-filters {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .auto-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .route-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .route-toolbar select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .area-rare-panel {
+    width: 100%;
   }
 
   h1 {

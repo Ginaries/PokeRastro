@@ -29,6 +29,10 @@
           <label for="areaSelect">Area</label>
           <select id="areaSelect"></select>
           <span id="areaHint">Nv. 1-10</span>
+          <div class="area-rare-panel" aria-label="Legendarios y miticos de area">
+            <strong>LEGENDARIOS Y MITICOS DE AREA</strong>
+            <div id="areaLegendaryList" class="area-rare-list"></div>
+          </div>
         </div>
 
         <div class="scene">
@@ -125,16 +129,14 @@
           <button class="close-modal" data-close="autoBattleModal" type="button">Cerrar</button>
         </div>
         <p class="modal-subtitle" id="autoBattleStatus">Bloqueado: requiere 5000 oro.</p>
-        <div class="auto-config">
-          <label>
-            Objetivo
-            <select id="autoGoalSelect"></select>
-          </label>
-          <label>
+        <input id="autoGoalSelect" type="hidden" value="defeat">
+        <div id="autoActionList" class="auto-action-list"></div>
+        <div id="autoControlBank" class="auto-control-bank" hidden>
+          <label id="autoTypeControl">
             Tipo
             <select id="autoTypeSelect"></select>
           </label>
-          <label>
+          <label id="autoRarityControl">
             Rareza
             <select id="autoRaritySelect">
               <option value="legendary">Legendarios</option>
@@ -143,9 +145,10 @@
               <option value="shiny">Variocolor</option>
             </select>
           </label>
-          <label>
+          <label id="autoSpeciesControl">
             ID Pokedex
             <input id="autoPokemonInput" type="number" min="1" max="1025" placeholder="25">
+            <small id="autoSpeciesCostPreview">Costo base: 1.000.000 oro.</small>
           </label>
         </div>
         <div id="autoUpgradeList" class="upgrade-list"></div>
