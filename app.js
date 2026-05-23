@@ -751,6 +751,7 @@ function usePotion(itemId) {
 
 function captureWild(ball) {
   const wild = state.wild;
+  const active = getActive();
   const owned = {
     ...wild,
     uid: uid(),
@@ -765,8 +766,11 @@ function captureWild(ball) {
   const duplicate = findWeakestDuplicate(owned);
   const baseGoldReward = baseCaptureReward(wild);
   const goldReward = captureReward(wild, ball);
+  const xp = encounterXpReward(wild);
+  const xpResult = gainXp(active, xp);
   const rewards = [
     { label: "Oro", value: `+${goldReward}` },
+    { label: "Experiencia", value: xpResult.resultLabel },
     { label: "Captura", value: `${owned.displayName} Nv. 1` }
   ];
   if (ball.id === "luxuryBall") {
@@ -786,12 +790,11 @@ function captureWild(ball) {
     log(`Encontraste ${cardDrop.name} al capturar a ${owned.displayName}.`);
   }
 
+  log(`Capturaste a ${owned.displayName} con ${ball.name}. +${goldReward} oro. ${xpResult.text}`);
   if (!state.activeId || powerScore(owned) > powerScore(getActive())) {
     state.activeId = owned.uid;
     log(`${owned.displayName} se une al equipo activo.`);
     rewards.push({ label: "Equipo", value: "Nuevo Pokemon activo" });
-  } else {
-    log(`Capturaste a ${owned.displayName} con ${ball.name}.`);
   }
 
   if (duplicate && powerScore(owned) > powerScore(duplicate)) {
@@ -800,13 +803,13 @@ function captureWild(ball) {
     rewards.push({ label: "Duplicado liberado", value: "+35 oro" });
     log(`Liberaste al duplicado mas debil de ${owned.displayName} (${owned.shiny ? "variocolor" : "normal"}). +35 oro`);
   }
-  setMessage(`${owned.displayName} fue capturado.`);
+  setMessage(`${owned.displayName} fue capturado. ${xpResult.text}`);
   state.wild = null;
   showResultModal({
     title: "Captura lograda",
     kind: `${ball.name} - ${rarityLabel(owned)}${owned.shiny ? " variocolor" : ""}`,
     name: owned.displayName,
-    text: `${owned.displayName} se agrego a tu coleccion.`,
+    text: `${owned.displayName} se agrego a tu coleccion. ${xpResult.text}`,
     sprite: owned.shiny ? owned.shinySprite : owned.sprite,
     rewards
   });
@@ -819,7 +822,7 @@ function defeatWild(attacker = getActive(), options = {}) {
   const baseGold = defeatReward(wild);
   const gold = autoDefeatReward(baseGold, options);
   const goldBonus = gold - baseGold;
-  const xp = 18 + wild.level * 4 + (wild.shiny ? 120 : 0) + (wild.rarity !== "normal" ? 160 : 0);
+  const xp = encounterXpReward(wild);
   const cardDrop = rollCardDrop(wild, 1);
   state.gold += gold;
   state.stats.defeats += 1;
@@ -2602,6 +2605,10 @@ function defeatReward(mon) {
   if (mon.rarity === "legendary") reward += Math.round(levelGoldValue(mon.level) * 1.15) + 260;
   if (mon.rarity === "mythical") reward += Math.round(levelGoldValue(mon.level) * 1.55) + 410;
   return reward;
+}
+
+function encounterXpReward(mon) {
+  return 18 + mon.level * 4 + (mon.shiny ? 120 : 0) + (mon.rarity !== "normal" ? 160 : 0);
 }
 
 function autoDefeatReward(baseGold, options = {}) {
