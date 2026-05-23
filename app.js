@@ -4,6 +4,7 @@ const SHINY_RATE = 1 / 90;
 const MAX_LEVEL = 1000;
 const SAVE_KEY = "pokerastro-save-v3";
 const SESSION_KEY = "pokerastro-session";
+const MUSIC_PREF_KEY = "pokerastro-music";
 const OLD_SAVE_KEYS = ["pokerastro-save-v2", "pokerastro-save-v1"];
 const AUTO_MONEY_REWARD_MULTIPLIER = 1.35;
 const AUTO_SEARCH_COSTS = {
@@ -342,9 +343,15 @@ const els = {
   accountStatus: $("#accountStatus"),
   loginBtn: $("#loginBtn"),
   createAccountBtn: $("#createAccountBtn"),
+  bgmInstrumental: $("#bgmInstrumental"),
+  bgmVocal: $("#bgmVocal"),
+  musicVoiceBtn: $("#musicVoiceBtn"),
+  musicMuteBtn: $("#musicMuteBtn"),
 };
 
 const state = upgradeState(loadState());
+let musicState = loadMusicState();
+let musicUnlockBound = false;
 let busy = false;
 let autoBattleRunning = false;
 let autoBattleStopRequested = false;
@@ -361,6 +368,7 @@ boot();
 
 async function boot() {
   initCloud();
+  initMusicControls();
   bindEvents();
   renderAreaSelect();
   renderPokedexTypeFilter();
@@ -433,6 +441,8 @@ function bindEvents() {
   els.createAccountBtn.addEventListener("click", createAccount);
   els.logoutBtn.addEventListener("click", logoutAccount);
   els.resetAccountBtn.addEventListener("click", resetAccountProgress);
+  els.musicVoiceBtn.addEventListener("click", toggleMusicVoice);
+  els.musicMuteBtn.addEventListener("click", toggleMusicMute);
   els.quantityInput.addEventListener("input", syncQuantityFromInput);
   els.quantityRange.addEventListener("input", syncQuantityFromRange);
   els.quantityMaxBtn.addEventListener("click", setQuantityToMax);
@@ -455,6 +465,112 @@ function bindEvents() {
       if (event.target === modal && !["walkModal", "accountModal"].includes(modal.id)) closeModal(modal.id);
     });
   });
+}
+
+function initMusicControls() {
+  [els.bgmInstrumental, els.bgmVocal].forEach((audio) => {
+    if (!audio) return;
+    audio.volume = 0.42;
+    audio.muted = musicState.muted;
+    audio.addEventListener("error", () => {
+      log("Musica no encontrada: revisa los archivos dentro de /audio.");
+      renderMusicControls();
+    });
+  });
+  pauseAllMusic();
+  renderMusicControls();
+  syncMusicPlayback();
+}
+
+async function toggleMusicVoice() {
+  const currentAudio = activeMusicAudio();
+  const currentTime = currentAudio?.currentTime || 0;
+  musicState.track = musicState.track === "vocal" ? "instrumental" : "vocal";
+  applyMusicTime(activeMusicAudio(), currentTime);
+  if (!musicState.muted) await syncMusicPlayback();
+  saveMusicState();
+  renderMusicControls();
+}
+
+async function toggleMusicMute() {
+  musicState.muted = !musicState.muted;
+  [els.bgmInstrumental, els.bgmVocal].forEach((audio) => {
+    if (audio) audio.muted = musicState.muted;
+  });
+  if (musicState.muted) {
+    pauseAllMusic();
+  } else {
+    await syncMusicPlayback();
+  }
+  saveMusicState();
+  renderMusicControls();
+}
+
+async function syncMusicPlayback() {
+  const selected = activeMusicAudio();
+  inactiveMusicAudio()?.pause();
+  if (!selected || musicState.muted) return;
+  try {
+    selected.muted = false;
+    await selected.play();
+    musicUnlockBound = false;
+  } catch {
+    bindMusicUnlock();
+  }
+}
+
+function bindMusicUnlock() {
+  if (musicUnlockBound) return;
+  musicUnlockBound = true;
+  const unlock = () => {
+    if (!musicState.muted) syncMusicPlayback();
+  };
+  document.addEventListener("pointerdown", unlock, { once: true, capture: true });
+  document.addEventListener("keydown", unlock, { once: true, capture: true });
+}
+
+function pauseAllMusic() {
+  [els.bgmInstrumental, els.bgmVocal].forEach((audio) => audio?.pause());
+}
+
+function activeMusicAudio() {
+  return musicState.track === "vocal" ? els.bgmVocal : els.bgmInstrumental;
+}
+
+function inactiveMusicAudio() {
+  return musicState.track === "vocal" ? els.bgmInstrumental : els.bgmVocal;
+}
+
+function applyMusicTime(audio, time) {
+  if (!audio || !Number.isFinite(time) || time <= 0) return;
+  try {
+    audio.currentTime = Number.isFinite(audio.duration) && audio.duration > 0 ? time % audio.duration : time;
+  } catch {
+    audio.currentTime = 0;
+  }
+}
+
+function renderMusicControls() {
+  els.musicVoiceBtn.textContent = musicState.track === "vocal" ? "CAMINAR" : "Voz";
+  els.musicMuteBtn.textContent = musicState.muted ? "Sonido" : "Mute";
+  els.musicVoiceBtn.classList.toggle("is-active", musicState.track === "vocal");
+  els.musicMuteBtn.classList.toggle("is-muted", musicState.muted);
+}
+
+function loadMusicState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MUSIC_PREF_KEY) || "{}");
+    return {
+      track: raw.track === "vocal" ? "vocal" : "instrumental",
+      muted: Boolean(raw.muted)
+    };
+  } catch {
+    return { track: "instrumental", muted: false };
+  }
+}
+
+function saveMusicState() {
+  localStorage.setItem(MUSIC_PREF_KEY, JSON.stringify(musicState));
 }
 
 async function walk() {

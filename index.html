@@ -23,6 +23,10 @@
             <button id="logoutBtn" type="button">Salir</button>
             <button id="resetAccountBtn" class="danger-button" type="button">Resetear</button>
           </div>
+          <div class="audio-controls" aria-label="Musica">
+            <button id="musicVoiceBtn" type="button">Voz</button>
+            <button id="musicMuteBtn" type="button">Mute</button>
+          </div>
         </header>
 
         <div class="route-toolbar" aria-label="Area de captura">
@@ -121,6 +125,9 @@
         <strong>Caminando...</strong>
       </div>
     </div>
+
+    <audio id="bgmInstrumental" src="audio/accumula-town-instrumental.mp3" preload="auto" loop></audio>
+    <audio id="bgmVocal" src="audio/caminar-vocal.mp3" preload="auto" loop></audio>
 
     <div class="modal hidden" id="autoBattleModal" role="dialog" aria-modal="true" aria-labelledby="autoBattleTitle">
       <div class="dialog wide-dialog">

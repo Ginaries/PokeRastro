@@ -140,10 +140,32 @@ h3 {
   gap: 8px;
 }
 
-.session-actions button {
+.session-actions button,
+.audio-controls button {
   min-height: 34px;
   padding: 8px 12px;
   font-size: 0.78rem;
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.audio-controls button {
+  min-width: 68px;
+}
+
+.audio-controls .is-active {
+  border-color: rgba(84, 223, 131, 0.76);
+  background: rgba(21, 128, 61, 0.52);
+}
+
+.audio-controls .is-muted {
+  border-color: rgba(255, 105, 115, 0.62);
+  background: rgba(127, 29, 29, 0.42);
 }
 
 .danger-button {
@@ -1146,7 +1168,8 @@ h3 {
     justify-content: flex-start;
   }
 
-  .session-actions {
+  .session-actions,
+  .audio-controls {
     justify-content: flex-start;
     flex-wrap: wrap;
   }
