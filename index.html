@@ -391,6 +391,13 @@
           <button id="joinRoomBtn" type="button">Entrar</button>
           <button id="leaveRoomBtn" class="danger-button" type="button">Salir de sala</button>
         </div>
+        <section class="online-roster-panel" aria-label="Jugadores conectados">
+          <div class="modal-head">
+            <h3>Jugadores conectados</h3>
+            <p class="modal-subtitle" id="onlineRosterStatus">Buscando jugadores...</p>
+          </div>
+          <div id="onlineRosterList" class="online-roster-list"></div>
+        </section>
         <div id="roomCodeBox" class="room-code-box hidden"></div>
         <div class="online-arena">
           <article class="online-fighter" id="onlinePlayerCard">
@@ -415,6 +422,17 @@
           <button class="online-choice-btn" data-online-choice="scissors" type="button">Tijera</button>
         </div>
         <div id="onlineBattleLog" class="battle-log online-log"></div>
+      </div>
+    </div>
+
+    <div class="challenge-prompt hidden" id="challengePrompt" role="dialog" aria-live="polite" aria-labelledby="challengePromptTitle">
+      <div>
+        <p class="eyebrow" id="challengePromptTitle">Reto online</p>
+        <strong id="challengeText">Un jugador te reta.</strong>
+      </div>
+      <div class="challenge-actions">
+        <button id="acceptChallengeBtn" class="primary-action" type="button">Aceptar</button>
+        <button id="rejectChallengeBtn" type="button">Rechazar</button>
       </div>
     </div>
 

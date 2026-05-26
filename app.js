@@ -85,6 +85,10 @@ const MYTHICAL_POOL = [...MYTHICAL_IDS].sort((a, b) => a - b);
 const AREA_LEGENDARY_SLOTS = 3;
 const AREA_MYTHICAL_SLOTS = 2;
 const ONLINE_MAX_HITS = 3;
+const ONLINE_WIN_REWARD = 120;
+const ONLINE_LOSS_REWARD = 35;
+const ONLINE_PRESENCE_MS = 25000;
+const ONLINE_RECENT_MS = 90000;
 const ONLINE_CHOICES = {
   rock: { label: "Piedra", beats: "scissors" },
   paper: { label: "Papel", beats: "rock" },
@@ -263,6 +267,8 @@ const els = {
   roomCodeInput: $("#roomCodeInput"),
   roomCodeBox: $("#roomCodeBox"),
   onlineBattleStatus: $("#onlineBattleStatus"),
+  onlineRosterStatus: $("#onlineRosterStatus"),
+  onlineRosterList: $("#onlineRosterList"),
   onlinePlayerSprite: $("#onlinePlayerSprite"),
   onlinePlayerName: $("#onlinePlayerName"),
   onlinePlayerMeta: $("#onlinePlayerMeta"),
@@ -273,6 +279,10 @@ const els = {
   onlineRivalHpBar: $("#onlineRivalHpBar"),
   onlineCountdown: $("#onlineCountdown"),
   onlineBattleLog: $("#onlineBattleLog"),
+  challengePrompt: $("#challengePrompt"),
+  challengeText: $("#challengeText"),
+  acceptChallengeBtn: $("#acceptChallengeBtn"),
+  rejectChallengeBtn: $("#rejectChallengeBtn"),
   areaSelect: $("#areaSelect"),
   areaHint: $("#areaHint"),
   areaLegendaryList: $("#areaLegendaryList"),
@@ -395,6 +405,13 @@ let onlineBattle = {
   pendingChoices: {},
   countdownTimer: null
 };
+let onlinePresence = {
+  heartbeat: null,
+  usersUnsubscribe: null,
+  challengesUnsubscribe: null,
+  users: [],
+  incomingChallenge: null
+};
 
 boot();
 
@@ -462,6 +479,8 @@ function bindEvents() {
   document.querySelectorAll(".online-choice-btn").forEach((button) => {
     button.addEventListener("click", () => chooseOnlineMove(button.dataset.onlineChoice));
   });
+  els.acceptChallengeBtn.addEventListener("click", acceptIncomingChallenge);
+  els.rejectChallengeBtn.addEventListener("click", rejectIncomingChallenge);
   els.achievementsBtn.addEventListener("click", () => {
     renderAchievements();
     openModal("achievementsModal");
@@ -963,25 +982,10 @@ async function createOnlineRoom() {
     detachOnlineRoom();
     const roomId = await uniqueRoomCode();
     const player = onlinePlayerSnapshot(getActive());
-    await onlineRoomRef(roomId).set({
-      status: "waiting",
-      hostUid: cloud.user.uid,
-      participantUids: [cloud.user.uid],
-      playerOrder: [cloud.user.uid],
-      players: { [cloud.user.uid]: player },
-      hits: { [cloud.user.uid]: 0 },
-      round: 1,
-      phase: "choosing",
-      choices: {},
-      roundResult: null,
-      countdownEndsAt: null,
-      winnerUid: null,
-      log: [`${player.userId} creo la sala. El combate sera a 3 golpes.`],
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    await onlineRoomRef(roomId).set(createOnlineRoomData(player, `${player.userId} creo la sala. El combate sera a 3 golpes.`));
     subscribeOnlineRoom(roomId);
     els.roomCodeInput.value = roomId;
+    updateOnlinePresence(true);
     setOnlineStatus(`Sala ${roomId} creada. Comparte el codigo con tu rival.`);
   } catch (error) {
     setOnlineStatus(`No se pudo crear la sala: ${error.message}`);
@@ -997,6 +1001,11 @@ async function joinOnlineRoom() {
     setOnlineStatus("Ingresa un codigo de sala.");
     return;
   }
+  await joinOnlineRoomById(roomId);
+}
+
+async function joinOnlineRoomById(roomId) {
+  if (!canUseOnlineBattle()) return;
   setOnlineBusy(true, "Entrando a sala...");
   try {
     detachOnlineRoom();
@@ -1028,6 +1037,8 @@ async function joinOnlineRoom() {
       });
     });
     subscribeOnlineRoom(roomId);
+    els.roomCodeInput.value = roomId;
+    updateOnlinePresence(true);
     setOnlineStatus(`Entraste a la sala ${roomId}.`);
   } catch (error) {
     setOnlineStatus(`No se pudo entrar: ${error.message}`);
@@ -1041,6 +1052,7 @@ async function leaveOnlineRoom(options = {}) {
   const uidValue = cloud?.user?.uid;
   detachOnlineRoom();
   renderOnlineBattle();
+  updateOnlinePresence(false);
   if (!roomId || !uidValue || options.localOnly) return;
   try {
     const ref = onlineRoomRef(roomId);
@@ -1191,6 +1203,7 @@ function renderOnlineBattle() {
   renderOnlineFighter("Rival", rival?.pokemon || null, rival?.userId || "Esperando rival", hits[rivalUid] || 0, Boolean(rival));
 
   const inRoom = Boolean(onlineBattle.roomId);
+  renderOnlineRoster();
   els.roomCodeBox.classList.toggle("hidden", !inRoom);
   els.roomCodeBox.textContent = inRoom ? `Codigo de sala: ${onlineBattle.roomId}` : "";
   els.createRoomBtn.disabled = onlineBattle.busy || inRoom || !cloud?.user || !active;
@@ -1338,7 +1351,13 @@ function renderOnlineCountdown(room) {
 function syncOnlineRoundEffects(room) {
   window.clearTimeout(onlineBattle.countdownTimer);
   onlineBattle.countdownTimer = null;
-  if (!room || room.status !== "active") return;
+  if (!room) return;
+  if (room.status === "finished") {
+    updateOnlinePresence(false);
+    claimOnlineReward(room);
+    return;
+  }
+  if (room.status !== "active") return;
   if (room.phase === "choosing") {
     const playersReady = Object.keys(room.players || {}).length === 2;
     const choices = room.choices || {};
@@ -1421,6 +1440,27 @@ function onlinePlayerSnapshot(mon) {
   };
 }
 
+function createOnlineRoomData(player, firstLog) {
+  return {
+    status: "waiting",
+    hostUid: cloud.user.uid,
+    participantUids: [cloud.user.uid],
+    playerOrder: [cloud.user.uid],
+    players: { [cloud.user.uid]: player },
+    hits: { [cloud.user.uid]: 0 },
+    round: 1,
+    phase: "choosing",
+    choices: {},
+    roundResult: null,
+    countdownEndsAt: null,
+    winnerUid: null,
+    rewardsClaimed: {},
+    log: [firstLog],
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+}
+
 function subscribeOnlineRoom(roomId) {
   detachOnlineRoom();
   onlineBattle.roomId = roomId;
@@ -1476,6 +1516,216 @@ function setOnlineBusy(value, message = "") {
 function setOnlineStatus(message, persist = true) {
   if (persist) onlineBattle.statusMessage = message;
   if (els.onlineBattleStatus) els.onlineBattleStatus.textContent = message;
+}
+
+function startOnlinePresence() {
+  if (!cloud?.user) return;
+  stopOnlinePresence(false);
+  updateOnlinePresence(Boolean(onlineBattle.roomId));
+  onlinePresence.heartbeat = window.setInterval(() => updateOnlinePresence(Boolean(onlineBattle.roomId)), ONLINE_PRESENCE_MS);
+  subscribeOnlineUsers();
+  subscribeIncomingChallenges();
+}
+
+function stopOnlinePresence(clearPrompt = true) {
+  window.clearInterval(onlinePresence.heartbeat);
+  onlinePresence.heartbeat = null;
+  if (onlinePresence.usersUnsubscribe) onlinePresence.usersUnsubscribe();
+  if (onlinePresence.challengesUnsubscribe) onlinePresence.challengesUnsubscribe();
+  onlinePresence.usersUnsubscribe = null;
+  onlinePresence.challengesUnsubscribe = null;
+  onlinePresence.users = [];
+  if (clearPrompt) {
+    onlinePresence.incomingChallenge = null;
+    renderChallengePrompt();
+  }
+  renderOnlineRoster();
+}
+
+async function updateOnlinePresence(inBattle = Boolean(onlineBattle.roomId)) {
+  if (!cloud?.user || !state.syncUserId) return;
+  const active = getActive();
+  await cloud.db.collection("onlineUsers").doc(cloud.user.uid).set({
+    uid: cloud.user.uid,
+    userId: state.syncUserId || cloud.user.displayName || "jugador",
+    activePokemon: active ? pokemonCloudSummary(active) : null,
+    inBattle,
+    roomId: onlineBattle.roomId || "",
+    lastSeen: Date.now(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(() => {});
+}
+
+async function clearOnlinePresence() {
+  if (!cloud?.user) return;
+  await cloud.db.collection("onlineUsers").doc(cloud.user.uid).set({
+    inBattle: false,
+    offline: true,
+    lastSeen: 0,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+function subscribeOnlineUsers() {
+  if (!cloud?.user || onlinePresence.usersUnsubscribe) return;
+  onlinePresence.usersUnsubscribe = cloud.db.collection("onlineUsers").onSnapshot((snapshot) => {
+    onlinePresence.users = snapshot.docs.map((doc) => ({ uid: doc.id, ...doc.data() }));
+    renderOnlineRoster();
+  }, () => {
+    if (els.onlineRosterStatus) els.onlineRosterStatus.textContent = "No se pudo cargar la lista.";
+  });
+}
+
+function renderOnlineRoster() {
+  if (!els.onlineRosterList) return;
+  const now = Date.now();
+  const users = onlinePresence.users
+    .filter((user) => user.uid !== cloud?.user?.uid)
+    .filter((user) => !user.offline && now - Number(user.lastSeen || 0) <= ONLINE_RECENT_MS)
+    .sort((a, b) => Number(a.inBattle) - Number(b.inBattle) || String(a.userId || "").localeCompare(String(b.userId || "")));
+
+  els.onlineRosterStatus.textContent = users.length
+    ? `${users.length} conectado${users.length === 1 ? "" : "s"}`
+    : "No hay otros jugadores conectados.";
+  els.onlineRosterList.innerHTML = "";
+  users.forEach((user) => {
+    const active = user.activePokemon;
+    const row = document.createElement("article");
+    row.className = "online-roster-item";
+    row.innerHTML = `
+      <div>
+        <strong>${user.userId || "jugador"}</strong>
+        <small>${active ? `${active.name} Nv. ${active.level} - poder ${active.power}` : "Sin Pokemon activo"}${user.inBattle ? " - en combate" : ""}</small>
+      </div>
+    `;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = user.inBattle ? "Ocupado" : "Retar";
+    button.disabled = Boolean(user.inBattle || onlineBattle.roomId || !cloud?.user);
+    button.addEventListener("click", () => sendOnlineChallenge(user));
+    row.appendChild(button);
+    els.onlineRosterList.appendChild(row);
+  });
+}
+
+function subscribeIncomingChallenges() {
+  if (!cloud?.user || onlinePresence.challengesUnsubscribe) return;
+  onlinePresence.challengesUnsubscribe = cloud.db.collection("challenges")
+    .where("toUid", "==", cloud.user.uid)
+    .where("status", "==", "pending")
+    .onSnapshot((snapshot) => {
+      const challenge = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))[0] || null;
+      onlinePresence.incomingChallenge = challenge;
+      renderChallengePrompt();
+    }, () => {});
+}
+
+async function sendOnlineChallenge(user) {
+  if (!canUseOnlineBattle() || !user?.uid || onlineBattle.roomId) return;
+  setOnlineBusy(true, `Retando a ${user.userId || "jugador"}...`);
+  try {
+    detachOnlineRoom();
+    const roomId = await uniqueRoomCode();
+    const player = onlinePlayerSnapshot(getActive());
+    await onlineRoomRef(roomId).set(createOnlineRoomData(player, `${player.userId} reto a ${user.userId || "jugador"}.`));
+    const challengeId = uid();
+    await cloud.db.collection("challenges").doc(challengeId).set({
+      fromUid: cloud.user.uid,
+      fromUserId: player.userId,
+      toUid: user.uid,
+      toUserId: user.userId || "",
+      roomId,
+      status: "pending",
+      createdAtMs: Date.now(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    subscribeOnlineRoom(roomId);
+    els.roomCodeInput.value = roomId;
+    updateOnlinePresence(true);
+    setOnlineStatus(`Reto enviado a ${user.userId || "jugador"}.`);
+  } catch (error) {
+    setOnlineStatus(`No se pudo retar: ${error.message}`);
+  } finally {
+    setOnlineBusy(false);
+  }
+}
+
+function renderChallengePrompt() {
+  if (!els.challengePrompt) return;
+  const challenge = onlinePresence.incomingChallenge;
+  const visible = Boolean(challenge && !onlineBattle.roomId);
+  els.challengePrompt.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  els.challengeText.textContent = `${challenge.fromUserId || "Un jugador"} te reta a un combate online.`;
+}
+
+async function acceptIncomingChallenge() {
+  const challenge = onlinePresence.incomingChallenge;
+  if (!challenge || !canUseOnlineBattle()) return;
+  els.acceptChallengeBtn.disabled = true;
+  try {
+    await cloud.db.collection("challenges").doc(challenge.id).update({
+      status: "accepted",
+      answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    onlinePresence.incomingChallenge = null;
+    renderChallengePrompt();
+    openModal("onlineBattleModal");
+    await joinOnlineRoomById(challenge.roomId);
+  } catch (error) {
+    setOnlineStatus(`No se pudo aceptar el reto: ${error.message}`);
+  } finally {
+    els.acceptChallengeBtn.disabled = false;
+  }
+}
+
+async function rejectIncomingChallenge() {
+  const challenge = onlinePresence.incomingChallenge;
+  if (!challenge || !cloud?.user) return;
+  els.rejectChallengeBtn.disabled = true;
+  try {
+    await cloud.db.collection("challenges").doc(challenge.id).update({
+      status: "rejected",
+      answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    onlinePresence.incomingChallenge = null;
+    renderChallengePrompt();
+  } catch (error) {
+    setOnlineStatus(`No se pudo rechazar el reto: ${error.message}`);
+  } finally {
+    els.rejectChallengeBtn.disabled = false;
+  }
+}
+
+async function claimOnlineReward(room) {
+  const uidValue = cloud?.user?.uid;
+  if (!uidValue || !onlineBattle.roomId || !room.roundResult?.finished || !room.players?.[uidValue] || room.rewardsClaimed?.[uidValue]) return;
+  const won = room.winnerUid === uidValue;
+  const reward = won ? ONLINE_WIN_REWARD : ONLINE_LOSS_REWARD;
+  try {
+    let claimed = false;
+    await cloud.db.runTransaction(async (transaction) => {
+      const ref = onlineRoomRef(onlineBattle.roomId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return;
+      const current = snapshot.data();
+      if (!current.roundResult?.finished || current.rewardsClaimed?.[uidValue]) return;
+      const rewardsClaimed = { ...(current.rewardsClaimed || {}), [uidValue]: true };
+      transaction.update(ref, {
+        rewardsClaimed,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      claimed = true;
+    });
+    if (!claimed) return;
+    state.gold += reward;
+    log(`Combate online: ${won ? "victoria" : "participacion"}. +${reward} oro.`);
+    setMessage(`Recompensa online: +${reward} oro.`);
+    render();
+    save();
+  } catch (error) {
+    setOnlineStatus(`No se pudo cobrar la recompensa: ${error.message}`);
+  }
 }
 
 function buyItem(itemId, cost, name) {
@@ -3309,6 +3559,7 @@ async function loginAccount() {
     const grants = await applyCloudGrants(user.uid);
     saveSession(credentials.userId);
     save();
+    startOnlinePresence();
     suppressCloudSave = false;
     if (grants.length) scheduleCloudSave(true);
     render();
@@ -3333,6 +3584,7 @@ async function createAccount() {
     saveSession(credentials.userId);
     save();
     await saveCloudState(user.uid);
+    startOnlinePresence();
     closeModal("accountModal");
     setMessage(`Cuenta creada: ${credentials.userId}.`);
   } catch (error) {
@@ -3367,6 +3619,8 @@ async function logoutAccount() {
   try {
     window.clearTimeout(cloudSaveTimer);
     await leaveOnlineRoom().catch(() => {});
+    await clearOnlinePresence().catch(() => {});
+    stopOnlinePresence();
     if (cloud?.user) await saveCloudState(cloud.user.uid).catch(() => {});
     if (cloud?.auth) await cloud.auth.signOut();
   } catch (error) {
@@ -3413,7 +3667,12 @@ function initCloud() {
   };
   cloud.auth.onAuthStateChanged((user) => {
     cloud.user = user;
-    if (user) refreshAdminRole(user.uid).catch(() => {});
+    if (user) {
+      refreshAdminRole(user.uid).catch(() => {});
+      startOnlinePresence();
+    } else {
+      stopOnlinePresence();
+    }
   });
 }
 

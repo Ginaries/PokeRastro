@@ -866,6 +866,54 @@ h3 {
   width: 100%;
 }
 
+.online-roster-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.online-roster-panel h3 {
+  margin: 0;
+}
+
+.online-roster-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.online-roster-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.online-roster-item strong,
+.online-roster-item small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-roster-item small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.online-roster-item button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
 .online-countdown {
   min-height: 58px;
   border: 1px solid rgba(121, 188, 255, 0.28);
@@ -901,6 +949,38 @@ h3 {
 
 .online-log {
   max-height: 220px;
+}
+
+.challenge-prompt {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  width: min(420px, calc(100vw - 36px));
+  border: 1px solid rgba(121, 188, 255, 0.48);
+  border-radius: 8px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  background: rgba(17, 27, 38, 0.98);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.42);
+}
+
+.challenge-prompt strong {
+  display: block;
+  line-height: 1.3;
+}
+
+.challenge-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.challenge-actions button {
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .admin-summary {
@@ -1351,7 +1431,8 @@ h3 {
   .admin-grid,
   .online-lobby,
   .online-arena,
-  .rps-grid {
+  .rps-grid,
+  .challenge-prompt {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1370,10 +1451,17 @@ h3 {
   .admin-grid,
   .online-lobby,
   .online-arena,
+  .online-roster-item,
   .rps-grid,
+  .challenge-prompt,
   .mini-stats,
   .side-panel {
     grid-template-columns: 1fr;
+  }
+
+  .challenge-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .collection-list {
