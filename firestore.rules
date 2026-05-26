@@ -18,6 +18,26 @@ service cloud.firestore {
       allow create, update: if isAdmin();
     }
 
+    match /profiles/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    match /gifts/{giftId} {
+      allow read: if request.auth != null
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.status == "pending";
+      allow update: if request.auth != null
+        && resource.data.toUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(["status", "acceptedAt"])
+        && request.resource.data.status == "accepted";
+      allow delete: if false;
+    }
+
     match /battleRooms/{roomId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null

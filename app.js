@@ -21,6 +21,7 @@ const AUTO_SPECIES_RARITY_COSTS = {
   legendary: 4000000,
   mythical: 6000000
 };
+const AUTO_CAPTURE_NEW_COST = 30000000;
 const POKEMON_TYPES = [
   "normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
   "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"
@@ -54,6 +55,7 @@ const speciesQuoteCache = new Map();
 const AUTO_GOALS = [
   { id: "defeat", name: "Derrotar todos", requires: null, note: "Ataca cada encuentro hasta vencerlo. No lanza Balls." },
   { id: "capture", name: "Capturar todos", requires: "capture", note: "Lanza Balls contra cada encuentro. Si falla, vuelve a intentar." },
+  { id: "captureNew", name: "Capturar NUEVOS", requires: "captureNew", note: "Solo lanza Balls si el encuentro no esta registrado en tu Pokedex. Los duplicados se derrotan." },
   { id: "money", name: "Farmear oro", requires: "money", note: "Derrota encuentros normales con bonus de oro por victoria." },
   { id: "type", name: "Buscar tipo", requires: "type", note: "Rastrea encuentros normales hasta encontrar el tipo elegido; mientras tanto derrota lo demas." },
   { id: "rarity", name: "Buscar rareza", requires: "rarity", note: "Rastrea hasta encontrar la rareza elegida; no garantiza que todos los encuentros lo sean." },
@@ -63,6 +65,7 @@ const AUTO_UPGRADES = [
   { id: "core", name: "Auto-pelea 2.0", cost: 5000, note: "Activa el panel y el modo Derrotar todos." },
   { id: "heal", name: "Cura automatica", cost: 18000, requires: "core", note: "Usa la mejor cura disponible cuando el activo queda bajo." },
   { id: "capture", name: "Captura automatica", cost: 42000, requires: "heal", note: "Desbloquea Capturar todos: lanza Balls sin atacar al objetivo." },
+  { id: "captureNew", name: "Filtro NUEVOS", cost: AUTO_CAPTURE_NEW_COST, requires: "capture", note: "Desbloquea Capturar NUEVOS por 30.000.000 oro: captura solo especies sin registrar." },
   { id: "money", name: "Radar de oro", cost: 76000, requires: "capture", note: "Desbloquea Farmear oro: derrota y aumenta el oro de cada victoria." },
   { id: "type", name: "Radar elemental", cost: 240000, requires: "money", note: "Desbloquea busquedas por tipo. No garantiza el tipo: pelea hasta encontrarlo." },
   { id: "rarity", name: "Radar de rareza", cost: 480000, requires: "type", note: "Desbloquea busquedas de legendarios, miticos o variocolor sin forzar todos los encuentros." },
@@ -310,6 +313,15 @@ const els = {
   shopBtn: $("#shopBtn"),
   centerBtn: $("#centerBtn"),
   onlineBattleBtn: $("#onlineBattleBtn"),
+  giftPokemonSearch: $("#giftPokemonSearch"),
+  giftPokemonSelect: $("#giftPokemonSelect"),
+  giftPokemonSummary: $("#giftPokemonSummary"),
+  giftSearchBtn: $("#giftSearchBtn"),
+  giftSendBtn: $("#giftSendBtn"),
+  giftStatus: $("#giftStatus"),
+  giftPrompt: $("#giftPrompt"),
+  giftText: $("#giftText"),
+  acceptGiftBtn: $("#acceptGiftBtn"),
   achievementsBtn: $("#achievementsBtn"),
   missionsBtn: $("#missionsBtn"),
   logBtn: $("#logBtn"),
@@ -393,9 +405,12 @@ let pokedexRenderTimer = null;
 let cloud = null;
 let cloudSaveTimer = null;
 let suppressCloudSave = false;
+let cloudSaveReady = false;
 let currentAdminTarget = null;
 let adminUsers = [];
 let quantityAction = null;
+let giftPokemonUid = "";
+let giftCandidates = [];
 let onlineBattle = {
   roomId: "",
   room: null,
@@ -409,8 +424,10 @@ let onlinePresence = {
   heartbeat: null,
   usersUnsubscribe: null,
   challengesUnsubscribe: null,
+  giftsUnsubscribe: null,
   users: [],
-  incomingChallenge: null
+  incomingChallenge: null,
+  incomingGift: null
 };
 
 boot();
@@ -473,6 +490,8 @@ function bindEvents() {
   });
   els.centerBtn.addEventListener("click", openCenterForManualHeal);
   els.onlineBattleBtn.addEventListener("click", openOnlineBattleModal);
+  els.giftSearchBtn.addEventListener("click", searchGiftRecipients);
+  els.giftSendBtn.addEventListener("click", sendPokemonGift);
   els.createRoomBtn.addEventListener("click", createOnlineRoom);
   els.joinRoomBtn.addEventListener("click", joinOnlineRoom);
   els.leaveRoomBtn.addEventListener("click", leaveOnlineRoom);
@@ -481,6 +500,7 @@ function bindEvents() {
   });
   els.acceptChallengeBtn.addEventListener("click", acceptIncomingChallenge);
   els.rejectChallengeBtn.addEventListener("click", rejectIncomingChallenge);
+  els.acceptGiftBtn.addEventListener("click", acceptIncomingGift);
   els.achievementsBtn.addEventListener("click", () => {
     renderAchievements();
     openModal("achievementsModal");
@@ -1525,6 +1545,7 @@ function startOnlinePresence() {
   onlinePresence.heartbeat = window.setInterval(() => updateOnlinePresence(Boolean(onlineBattle.roomId)), ONLINE_PRESENCE_MS);
   subscribeOnlineUsers();
   subscribeIncomingChallenges();
+  subscribeIncomingGifts();
 }
 
 function stopOnlinePresence(clearPrompt = true) {
@@ -1532,12 +1553,16 @@ function stopOnlinePresence(clearPrompt = true) {
   onlinePresence.heartbeat = null;
   if (onlinePresence.usersUnsubscribe) onlinePresence.usersUnsubscribe();
   if (onlinePresence.challengesUnsubscribe) onlinePresence.challengesUnsubscribe();
+  if (onlinePresence.giftsUnsubscribe) onlinePresence.giftsUnsubscribe();
   onlinePresence.usersUnsubscribe = null;
   onlinePresence.challengesUnsubscribe = null;
+  onlinePresence.giftsUnsubscribe = null;
   onlinePresence.users = [];
   if (clearPrompt) {
     onlinePresence.incomingChallenge = null;
+    onlinePresence.incomingGift = null;
     renderChallengePrompt();
+    renderGiftPrompt();
   }
   renderOnlineRoster();
 }
@@ -1551,6 +1576,15 @@ async function updateOnlinePresence(inBattle = Boolean(onlineBattle.roomId)) {
     activePokemon: active ? pokemonCloudSummary(active) : null,
     inBattle,
     roomId: onlineBattle.roomId || "",
+    lastSeen: Date.now(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(() => {});
+  await cloud.db.collection("profiles").doc(cloud.user.uid).set({
+    uid: cloud.user.uid,
+    userId: state.syncUserId || cloud.user.displayName || "jugador",
+    activePokemon: active ? pokemonCloudSummary(active) : null,
+    collectionCount: state.collection.length,
+    highestLevel: state.collection.reduce((max, mon) => Math.max(max, mon.level || 1), 1),
     lastSeen: Date.now(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true }).catch(() => {});
@@ -1620,6 +1654,17 @@ function subscribeIncomingChallenges() {
     }, () => {});
 }
 
+function subscribeIncomingGifts() {
+  if (!cloud?.user || onlinePresence.giftsUnsubscribe) return;
+  onlinePresence.giftsUnsubscribe = cloud.db.collection("gifts")
+    .where("toUid", "==", cloud.user.uid)
+    .where("status", "==", "pending")
+    .onSnapshot((snapshot) => {
+      onlinePresence.incomingGift = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))[0] || null;
+      renderGiftPrompt();
+    }, () => {});
+}
+
 async function sendOnlineChallenge(user) {
   if (!canUseOnlineBattle() || !user?.uid || onlineBattle.roomId) return;
   setOnlineBusy(true, `Retando a ${user.userId || "jugador"}...`);
@@ -1659,6 +1704,16 @@ function renderChallengePrompt() {
   els.challengeText.textContent = `${challenge.fromUserId || "Un jugador"} te reta a un combate online.`;
 }
 
+function renderGiftPrompt() {
+  if (!els.giftPrompt) return;
+  const gift = onlinePresence.incomingGift;
+  const visible = Boolean(gift);
+  els.giftPrompt.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  const pokemon = gift.pokemonSummary || gift.pokemon || {};
+  els.giftText.textContent = `${gift.fromUserId || "Un jugador"} te regalo ${pokemon.name || "un Pokemon"}${pokemon.level ? ` Nv. ${pokemon.level}` : ""}.`;
+}
+
 async function acceptIncomingChallenge() {
   const challenge = onlinePresence.incomingChallenge;
   if (!challenge || !canUseOnlineBattle()) return;
@@ -1694,6 +1749,56 @@ async function rejectIncomingChallenge() {
     setOnlineStatus(`No se pudo rechazar el reto: ${error.message}`);
   } finally {
     els.rejectChallengeBtn.disabled = false;
+  }
+}
+
+async function acceptIncomingGift() {
+  const gift = onlinePresence.incomingGift;
+  if (!gift || !cloud?.user) return;
+  els.acceptGiftBtn.disabled = true;
+  try {
+    let accepted = null;
+    await cloud.db.runTransaction(async (transaction) => {
+      const ref = cloud.db.collection("gifts").doc(gift.id);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return;
+      const current = snapshot.data();
+      if (current.toUid !== cloud.user.uid || current.status !== "pending") return;
+      transaction.update(ref, {
+        status: "accepted",
+        acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      accepted = current;
+    });
+    if (!accepted?.pokemon) return;
+    const mon = upgradePokemon({ ...accepted.pokemon, uid: uid(), giftedFrom: accepted.fromUserId || accepted.fromUid || "" });
+    state.collection.push(mon);
+    if (!state.activeId) state.activeId = mon.uid;
+    state.appliedGifts = Array.isArray(state.appliedGifts) ? state.appliedGifts : [];
+    state.appliedGifts.push(gift.id);
+    onlinePresence.incomingGift = null;
+    renderGiftPrompt();
+    log(`Recibiste ${mon.displayName} de ${accepted.fromUserId || "un jugador"}.`);
+    showResultModal({
+      title: "Regalo recibido",
+      kind: "Pokemon regalado",
+      name: mon.displayName,
+      text: `${mon.displayName} se sumo a tu coleccion.`,
+      sprite: mon.shiny ? mon.shinySprite : mon.sprite,
+      rewards: [
+        { label: "Pokemon", value: `${mon.displayName} Nv. ${mon.level}` },
+        { label: "De", value: accepted.fromUserId || "jugador" }
+      ],
+      showCenterButton: false,
+      closeText: "Aceptar"
+    });
+    setMessage(`Regalo recibido: ${mon.displayName}.`);
+    render();
+    save();
+  } catch (error) {
+    setMessage(`No se pudo recibir el regalo: ${error.message}`);
+  } finally {
+    els.acceptGiftBtn.disabled = false;
   }
 }
 
@@ -2226,6 +2331,12 @@ async function showPokemonStats(mon, kind) {
       closeModal("statsModal");
     });
 
+    const gift = document.createElement("button");
+    gift.type = "button";
+    gift.textContent = "Regalar";
+    gift.disabled = !cloud?.user || state.collection.length <= 1;
+    gift.addEventListener("click", () => openGiftModal(mon));
+
     const candy = document.createElement("button");
     candy.type = "button";
     candy.textContent = `Caramelo raro x${getItem("rareCandy")}`;
@@ -2239,9 +2350,137 @@ async function showPokemonStats(mon, kind) {
     els.statsActions.append(activate, candy);
     vitaminButtons(mon).forEach((button) => els.statsActions.appendChild(button));
     els.statsActions.appendChild(evolution);
+    els.statsActions.appendChild(gift);
     els.statsActions.appendChild(release);
   }
   openModal("statsModal");
+}
+
+function openGiftModal(mon) {
+  if (!cloud?.user) {
+    setMessage("Inicia sesion para regalar Pokemon.");
+    return;
+  }
+  if (!mon || state.collection.length <= 1) {
+    setMessage("No puedes regalar tu ultimo Pokemon.");
+    return;
+  }
+  giftPokemonUid = mon.uid;
+  giftCandidates = onlinePresence.users
+    .filter((user) => user.uid !== cloud.user.uid)
+    .map(profileFromPresence);
+  els.giftPokemonSearch.value = "";
+  els.giftPokemonSummary.textContent = `${mon.displayName} Nv. ${mon.level} - ${rarityLabel(mon)} - poder ${powerScore(mon)}`;
+  renderGiftCandidates();
+  els.giftStatus.textContent = giftCandidates.length
+    ? "Elegir jugador conectado o buscar por usuario exacto."
+    : "Busca el usuario exacto para enviarle el regalo.";
+  openModal("giftModal");
+}
+
+function profileFromPresence(user) {
+  return {
+    uid: user.uid,
+    userId: user.userId || "jugador",
+    activePokemon: user.activePokemon || null,
+    collectionCount: user.collectionCount || 0,
+    highestLevel: user.highestLevel || user.activePokemon?.level || 1
+  };
+}
+
+function renderGiftCandidates() {
+  els.giftPokemonSelect.innerHTML = "";
+  const unique = new Map();
+  giftCandidates.forEach((candidate) => {
+    if (candidate?.uid && candidate.uid !== cloud?.user?.uid) unique.set(candidate.uid, candidate);
+  });
+  if (!unique.size) {
+    els.giftPokemonSelect.innerHTML = "<option value=\"\">Sin jugadores encontrados</option>";
+    els.giftSendBtn.disabled = true;
+    return;
+  }
+  [...unique.values()].forEach((candidate) => {
+    const option = document.createElement("option");
+    const active = candidate.activePokemon;
+    option.value = candidate.uid;
+    option.textContent = `${candidate.userId || candidate.uid}${active ? ` - ${active.name} Nv. ${active.level}` : ""}`;
+    els.giftPokemonSelect.appendChild(option);
+  });
+  els.giftSendBtn.disabled = false;
+}
+
+async function searchGiftRecipients() {
+  if (!cloud?.user) return;
+  const userId = normalizeUserId(els.giftPokemonSearch.value);
+  if (!userId) {
+    els.giftStatus.textContent = "Escribe el usuario exacto.";
+    return;
+  }
+  els.giftStatus.textContent = "Buscando jugador...";
+  els.giftSearchBtn.disabled = true;
+  try {
+    const query = await cloud.db.collection("profiles").where("userId", "==", userId).limit(5).get();
+    const found = query.docs.map((doc) => ({ uid: doc.id, ...doc.data() }))
+      .filter((profile) => profile.uid !== cloud.user.uid);
+    giftCandidates = [...giftCandidates, ...found];
+    renderGiftCandidates();
+    els.giftStatus.textContent = found.length ? "Jugador encontrado. Revisa la lista y envia el regalo." : "No se encontro ese usuario.";
+  } catch (error) {
+    els.giftStatus.textContent = `No se pudo buscar: ${error.message}`;
+  } finally {
+    els.giftSearchBtn.disabled = false;
+  }
+}
+
+async function sendPokemonGift() {
+  if (!cloud?.user) return;
+  const toUid = els.giftPokemonSelect.value;
+  const target = giftCandidates.find((candidate) => candidate.uid === toUid);
+  const mon = state.collection.find((item) => item.uid === giftPokemonUid);
+  if (!target || !toUid) {
+    els.giftStatus.textContent = "Elegir un jugador para el regalo.";
+    return;
+  }
+  if (!mon) {
+    els.giftStatus.textContent = "Ese Pokemon ya no esta en tu coleccion.";
+    return;
+  }
+  if (state.collection.length <= 1) {
+    els.giftStatus.textContent = "No puedes regalar tu ultimo Pokemon.";
+    return;
+  }
+  const accepted = window.confirm(`Regalar ${mon.displayName} a ${target.userId || "jugador"}? Se quitara de tu coleccion.`);
+  if (!accepted) return;
+  els.giftSendBtn.disabled = true;
+  els.giftStatus.textContent = "Enviando regalo...";
+  try {
+    const giftId = uid();
+    const payload = {
+      fromUid: cloud.user.uid,
+      fromUserId: state.syncUserId || cloud.user.displayName || "jugador",
+      toUid,
+      toUserId: target.userId || "",
+      pokemon: JSON.parse(JSON.stringify(mon)),
+      pokemonSummary: pokemonCloudSummary(mon),
+      status: "pending",
+      createdAtMs: Date.now(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await cloud.db.collection("gifts").doc(giftId).set(payload);
+    removePokemonFromCollection(mon.uid);
+    closeModal("giftModal");
+    closeModal("statsModal");
+    closeModal("collectionModal");
+    log(`Regalaste ${mon.displayName} a ${target.userId || "jugador"}.`);
+    setMessage(`${mon.displayName} fue enviado como regalo.`);
+    render();
+    save();
+    await saveCloudState(cloud.user.uid).catch(() => {});
+  } catch (error) {
+    els.giftStatus.textContent = `No se pudo enviar: ${error.message}`;
+  } finally {
+    els.giftSendBtn.disabled = false;
+  }
 }
 
 function useRareCandy(mon) {
@@ -2798,6 +3037,7 @@ function autoTargetMatches(mon, goalOverride = null) {
   const auto = ensureAutoBattleState();
   const goal = goalOverride || auto.goal;
   if (goal === "capture") return hasAutoUpgrade("capture");
+  if (goal === "captureNew") return hasAutoUpgrade("captureNew") && isNewPokedexSpecies(mon);
   if (goal === "money") return false;
   if (goal === "type") return autoTypeTargetMatches(mon);
   if (goal === "rarity") return autoRarityTargetMatches(mon);
@@ -2834,7 +3074,7 @@ function shouldStopForAutoSearchTarget(mon, goalOverride = null) {
 function shouldAutoCapture(mon, goalOverride = null) {
   if (!mon) return false;
   const goal = goalOverride || state.autoBattle?.goal || "defeat";
-  return goal === "capture" && autoTargetMatches(mon, goal);
+  return (goal === "capture" || goal === "captureNew") && autoTargetMatches(mon, goal);
 }
 
 function tryAutoCapture() {
@@ -3362,16 +3602,22 @@ function releaseById(uid, announce = true) {
     return;
   }
   const mon = state.collection.find((item) => item.uid === uid);
-  state.collection = state.collection.filter((item) => item.uid !== uid);
-  if (state.activeId === uid) {
-    state.activeId = [...state.collection].sort((a, b) => powerScore(b) - powerScore(a))[0].uid;
-  }
+  removePokemonFromCollection(uid);
   if (announce && mon) {
     state.gold += 20;
     log(`Liberaste a ${mon.displayName}. +20 oro`);
   }
   render();
   save();
+}
+
+function removePokemonFromCollection(uidValue) {
+  state.collection = state.collection.filter((item) => item.uid !== uidValue);
+  if (state.activeId === uidValue) {
+    state.activeId = state.collection.length
+      ? [...state.collection].sort((a, b) => powerScore(b) - powerScore(a))[0].uid
+      : null;
+  }
 }
 
 function findWeakestDuplicate(candidate) {
@@ -3549,6 +3795,7 @@ async function loginAccount() {
   setAccountBusy(true, "Entrando...");
   try {
     if (!cloud) throw new Error("Firebase no esta configurado");
+    cloudSaveReady = false;
     const user = await signInCloud(credentials);
     await refreshAdminRole(user.uid);
     const saveData = await loadCloudSave(user.uid);
@@ -3561,6 +3808,7 @@ async function loginAccount() {
     save();
     startOnlinePresence();
     suppressCloudSave = false;
+    cloudSaveReady = true;
     if (grants.length) scheduleCloudSave(true);
     render();
     closeModal("accountModal");
@@ -3583,6 +3831,7 @@ async function createAccount() {
     state.syncUserId = credentials.userId;
     saveSession(credentials.userId);
     save();
+    cloudSaveReady = true;
     await saveCloudState(user.uid);
     startOnlinePresence();
     closeModal("accountModal");
@@ -3627,6 +3876,7 @@ async function logoutAccount() {
     log(`No se pudo cerrar sesion correctamente: ${error.message}`);
   }
   if (cloud) cloud.user = null;
+  cloudSaveReady = false;
   localStorage.removeItem(SESSION_KEY);
   els.adminBtn.classList.add("hidden");
   state.syncUserId = "";
@@ -3647,7 +3897,7 @@ async function resetAccountProgress() {
   ensureActiveMissions();
   suppressCloudSave = false;
   save();
-  if (cloud?.user) await saveCloudState(cloud.user.uid);
+  if (cloud?.user) await saveCloudState(cloud.user.uid, { allowCollectionShrink: true });
   render();
   document.querySelectorAll(".modal").forEach((modal) => {
     if (modal.id !== "accountModal") closeModal(modal.id);
@@ -3694,14 +3944,44 @@ async function loadCloudSave(uid) {
   return doc.exists ? doc.data().save : null;
 }
 
-async function saveCloudState(uid = cloud?.user?.uid) {
+async function saveCloudState(uid = cloud?.user?.uid, options = {}) {
   if (!cloud || !uid) return;
+  if (!cloudSaveReady && !options.force) return;
   const snapshot = JSON.parse(JSON.stringify(state));
+  await assertCloudCollectionSaveAllowed(uid, snapshot, options);
+  const summary = playerCloudSummary(snapshot);
   await cloud.db.collection("saves").doc(uid).set({
-    ...playerCloudSummary(snapshot),
+    ...summary,
     save: snapshot,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+  await cloud.db.collection("profiles").doc(uid).set({
+    uid,
+    userId: summary.userId,
+    activePokemon: summary.activePokemon,
+    collectionCount: summary.collectionCount,
+    highestLevel: summary.highestLevel,
+    lastSeen: Date.now(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(() => {});
+}
+
+async function assertCloudCollectionSaveAllowed(uid, snapshot, options = {}) {
+  if (options.allowCollectionShrink) return;
+  const nextCount = snapshot.collection?.length || 0;
+  try {
+    const doc = await cloud.db.collection("saves").doc(uid).get();
+    const previousCount = Number(doc.data()?.collectionCount || doc.data()?.save?.collection?.length || 0);
+    if (previousCount >= 25 && previousCount - nextCount >= 25) {
+      throw new Error(`Guardado bloqueado: la coleccion bajaria de ${previousCount} a ${nextCount} Pokemon.`);
+    }
+  } catch (error) {
+    if (String(error.message || "").startsWith("Guardado bloqueado")) {
+      log(error.message);
+      setMessage(error.message);
+      throw error;
+    }
+  }
 }
 
 function playerCloudSummary(snapshot = state) {
@@ -3752,7 +4032,7 @@ function cloudItemSummary(items) {
 }
 
 function scheduleCloudSave(now = false) {
-  if (!cloud?.user || suppressCloudSave) return;
+  if (!cloud?.user || suppressCloudSave || !cloudSaveReady) return;
   window.clearTimeout(cloudSaveTimer);
   cloudSaveTimer = window.setTimeout(() => {
     saveCloudState().catch(() => {});
@@ -4029,6 +4309,7 @@ function baseState() {
     achievementsClaimed: [],
     missionsClaimed: [],
     appliedGrants: [],
+    appliedGifts: [],
     activeMissions: [],
     log: []
   };
@@ -4054,6 +4335,7 @@ function upgradeState(raw) {
   upgraded.autoBattle = { ...defaultAutoBattle(), ...(raw.autoBattle || {}) };
   upgraded.autoBattle.upgrades = { ...(raw.autoBattle?.upgrades || {}) };
   upgraded.autoBattle.pokemonId = clamp(Number(upgraded.autoBattle.pokemonId) || 25, 1, MAX_POKEMON_ID);
+  upgraded.appliedGifts = raw.appliedGifts || [];
   return upgraded;
 }
 

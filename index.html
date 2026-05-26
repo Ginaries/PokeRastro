@@ -436,6 +436,41 @@
       </div>
     </div>
 
+    <div class="challenge-prompt gift-prompt hidden" id="giftPrompt" role="dialog" aria-live="polite" aria-labelledby="giftPromptTitle">
+      <div>
+        <p class="eyebrow" id="giftPromptTitle">Regalo Pokemon</p>
+        <strong id="giftText">Recibiste un Pokemon.</strong>
+      </div>
+      <div class="challenge-actions">
+        <button id="acceptGiftBtn" class="primary-action" type="button">Recibir</button>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="giftModal" role="dialog" aria-modal="true" aria-labelledby="giftTitle">
+      <div class="dialog">
+        <div class="modal-head">
+          <h2 id="giftTitle">Regalar Pokemon</h2>
+          <button class="close-modal" data-close="giftModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="giftPokemonSummary">Elegir un Pokemon.</p>
+        <div class="gift-grid">
+          <label>
+            Usuario
+            <input id="giftPokemonSearch" type="text" placeholder="jugador-001">
+          </label>
+          <button id="giftSearchBtn" type="button">Buscar</button>
+        </div>
+        <label class="gift-target-label">
+          Destinatario
+          <select id="giftPokemonSelect"></select>
+        </label>
+        <p class="modal-subtitle" id="giftStatus">Busca un jugador para enviar el regalo.</p>
+        <div class="stats-actions">
+          <button id="giftSendBtn" class="primary-action" type="button">Enviar regalo</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal hidden" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
       <div class="dialog wide-dialog">
         <div class="modal-head">

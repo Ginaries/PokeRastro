@@ -973,6 +973,10 @@ h3 {
   line-height: 1.3;
 }
 
+.gift-prompt {
+  bottom: 104px;
+}
+
 .challenge-actions {
   display: flex;
   gap: 8px;
@@ -1002,6 +1006,26 @@ h3 {
 .admin-summary strong {
   display: block;
   color: var(--ink);
+}
+
+.gift-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, auto);
+  gap: 10px;
+  align-items: end;
+}
+
+.gift-grid label,
+.gift-target-label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.gift-target-label {
+  margin: 12px 0;
 }
 
 .pokedex-list {
@@ -1429,6 +1453,7 @@ h3 {
   .bag-grid,
   .stats-actions,
   .admin-grid,
+  .gift-grid,
   .online-lobby,
   .online-arena,
   .rps-grid,
@@ -1449,6 +1474,7 @@ h3 {
   .bag-grid,
   .stats-actions,
   .admin-grid,
+  .gift-grid,
   .online-lobby,
   .online-arena,
   .online-roster-item,
@@ -1462,6 +1488,10 @@ h3 {
   .challenge-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .gift-prompt .challenge-actions {
+    grid-template-columns: 1fr;
   }
 
   .collection-list {
