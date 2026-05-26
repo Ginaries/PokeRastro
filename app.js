@@ -407,6 +407,7 @@ let cloud = null;
 let cloudSaveTimer = null;
 let suppressCloudSave = false;
 let cloudSaveReady = false;
+let accountAuthFlow = false;
 let currentAdminTarget = null;
 let adminUsers = [];
 let quantityAction = null;
@@ -2476,7 +2477,7 @@ async function sendPokemonGift() {
     setMessage(`${mon.displayName} fue enviado como regalo.`);
     render();
     save();
-    await saveCloudState(cloud.user.uid).catch(() => {});
+    await saveCloudState(cloud.user.uid).catch((error) => reportCloudSaveError(error));
   } catch (error) {
     els.giftStatus.textContent = `No se pudo enviar: ${error.message}`;
   } finally {
@@ -3796,27 +3797,17 @@ async function loginAccount() {
   setAccountBusy(true, "Entrando...");
   try {
     if (!cloud) throw new Error("Firebase no esta configurado");
+    accountAuthFlow = true;
     cloudSaveReady = false;
     const user = await signInCloud(credentials);
     await refreshAdminRole(user.uid);
-    const saveData = await loadCloudSave(user.uid);
-    if (!saveData) throw new Error("La cuenta no tiene partida guardada");
-    suppressCloudSave = true;
-    replaceState(upgradeState(saveData));
-    state.syncUserId = credentials.userId;
-    const grants = await applyCloudGrants(user.uid);
-    saveSession(credentials.userId);
-    save();
-    startOnlinePresence();
-    suppressCloudSave = false;
-    cloudSaveReady = true;
-    if (grants.length) scheduleCloudSave(true);
-    render();
+    await loadAuthenticatedCloudSession(user, credentials.userId);
     closeModal("accountModal");
     setMessage(`Bienvenido, ${credentials.userId}.`);
   } catch (error) {
     els.accountStatus.textContent = `No se pudo entrar: ${error.message}`;
   } finally {
+    accountAuthFlow = false;
     setAccountBusy(false);
   }
 }
@@ -3827,6 +3818,7 @@ async function createAccount() {
   setAccountBusy(true, "Creando cuenta...");
   try {
     if (!cloud) throw new Error("Firebase no esta configurado");
+    accountAuthFlow = true;
     const user = await createCloudAccount(credentials);
     await refreshAdminRole(user.uid);
     state.syncUserId = credentials.userId;
@@ -3840,6 +3832,7 @@ async function createAccount() {
   } catch (error) {
     els.accountStatus.textContent = `No se pudo crear: ${error.message}`;
   } finally {
+    accountAuthFlow = false;
     setAccountBusy(false);
   }
 }
@@ -3864,6 +3857,41 @@ function setAccountBusy(value, message = "") {
   if (message) els.accountStatus.textContent = message;
 }
 
+async function loadAuthenticatedCloudSession(user, userId = normalizeUserId(user?.displayName || loadSession().userId || state.syncUserId)) {
+  if (!cloud || !user || !userId) return;
+  const saveData = await loadCloudSave(user.uid);
+  if (!saveData) throw new Error("La cuenta no tiene partida guardada");
+  const cloudState = upgradeState(saveData);
+  const localUserId = normalizeUserId(state.syncUserId || loadSession().userId || "");
+  const localBelongsToUser = localUserId === userId;
+  const localCount = state.collection?.length || 0;
+  const cloudCount = cloudState.collection?.length || 0;
+
+  suppressCloudSave = true;
+  if (localBelongsToUser && localCount > cloudCount) {
+    state.syncUserId = userId;
+    const grants = await applyCloudGrants(user.uid);
+    ensureActiveMissions();
+    saveSession(userId);
+    suppressCloudSave = false;
+    cloudSaveReady = true;
+    await saveCloudState(user.uid, { force: true });
+    if (grants.length) scheduleCloudSave(true);
+    setMessage(`Recuperada partida local con ${localCount} Pokemon y guardada en la nube.`);
+  } else {
+    replaceState(cloudState);
+    state.syncUserId = userId;
+    const grants = await applyCloudGrants(user.uid);
+    saveSession(userId);
+    save();
+    suppressCloudSave = false;
+    cloudSaveReady = true;
+    if (grants.length) scheduleCloudSave(true);
+  }
+  startOnlinePresence();
+  render();
+}
+
 async function logoutAccount() {
   if (!window.confirm("Cerrar sesion y volver a la pantalla de acceso?")) return;
   try {
@@ -3871,7 +3899,7 @@ async function logoutAccount() {
     await leaveOnlineRoom().catch(() => {});
     await clearOnlinePresence().catch(() => {});
     stopOnlinePresence();
-    if (cloud?.user) await saveCloudState(cloud.user.uid).catch(() => {});
+    if (cloud?.user) await saveCloudState(cloud.user.uid).catch((error) => reportCloudSaveError(error));
     if (cloud?.auth) await cloud.auth.signOut();
   } catch (error) {
     log(`No se pudo cerrar sesion correctamente: ${error.message}`);
@@ -3920,8 +3948,23 @@ function initCloud() {
     cloud.user = user;
     if (user) {
       refreshAdminRole(user.uid).catch(() => {});
-      startOnlinePresence();
+      if (!accountAuthFlow && !cloudSaveReady) {
+        const userId = normalizeUserId(user.displayName || loadSession().userId || state.syncUserId);
+        if (userId) {
+          loadAuthenticatedCloudSession(user, userId)
+            .then(() => closeModal("accountModal"))
+            .catch((error) => {
+              els.accountStatus.textContent = `No se pudo reanudar la sesion: ${error.message}`;
+              openAccountModalIfNeeded();
+            });
+        } else {
+          startOnlinePresence();
+        }
+      } else {
+        startOnlinePresence();
+      }
     } else {
+      cloudSaveReady = false;
       stopOnlinePresence();
     }
   });
