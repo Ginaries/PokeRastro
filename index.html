@@ -88,6 +88,7 @@
           <button id="pokedexBtn" type="button">Pokedex</button>
           <button id="shopBtn" type="button">Tienda</button>
           <button id="centerBtn" type="button">Centro Pokemon</button>
+          <button id="onlineBattleBtn" type="button">Combate Online</button>
           <button id="achievementsBtn" type="button">Logros</button>
           <button id="missionsBtn" type="button">Misiones</button>
           <button id="logBtn" type="button">Bitacora</button>
@@ -371,6 +372,49 @@
           <button class="close-modal" data-close="logModal" type="button">Cerrar</button>
         </div>
         <div id="battleLog" class="battle-log"></div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="onlineBattleModal" role="dialog" aria-modal="true" aria-labelledby="onlineBattleTitle">
+      <div class="dialog wide-dialog online-dialog">
+        <div class="modal-head">
+          <h2 id="onlineBattleTitle">Combate Online</h2>
+          <button class="close-modal" data-close="onlineBattleModal" type="button">Cerrar</button>
+        </div>
+        <p class="modal-subtitle" id="onlineBattleStatus">Crea una sala o entra con un codigo.</p>
+        <div class="online-lobby">
+          <button id="createRoomBtn" class="primary-action" type="button">Crear sala</button>
+          <label>
+            Codigo
+            <input id="roomCodeInput" type="text" maxlength="6" placeholder="ABC123">
+          </label>
+          <button id="joinRoomBtn" type="button">Entrar</button>
+          <button id="leaveRoomBtn" class="danger-button" type="button">Salir de sala</button>
+        </div>
+        <div id="roomCodeBox" class="room-code-box hidden"></div>
+        <div class="online-arena">
+          <article class="online-fighter" id="onlinePlayerCard">
+            <p class="eyebrow">Tu Pokemon</p>
+            <img id="onlinePlayerSprite" alt="">
+            <h3 id="onlinePlayerName">Sin sala</h3>
+            <p id="onlinePlayerMeta">Elige tu activo antes de crear una sala.</p>
+            <div class="health-bar ally"><span id="onlinePlayerHpBar"></span></div>
+          </article>
+          <article class="online-fighter rival" id="onlineRivalCard">
+            <p class="eyebrow">Rival</p>
+            <img id="onlineRivalSprite" alt="">
+            <h3 id="onlineRivalName">Esperando rival</h3>
+            <p id="onlineRivalMeta">Comparte el codigo de sala.</p>
+            <div class="health-bar"><span id="onlineRivalHpBar"></span></div>
+          </article>
+        </div>
+        <div class="online-countdown" id="onlineCountdown">Elige tu jugada</div>
+        <div class="rps-grid" aria-label="Elegir jugada">
+          <button class="online-choice-btn" data-online-choice="rock" type="button">Piedra</button>
+          <button class="online-choice-btn" data-online-choice="paper" type="button">Papel</button>
+          <button class="online-choice-btn" data-online-choice="scissors" type="button">Tijera</button>
+        </div>
+        <div id="onlineBattleLog" class="battle-log online-log"></div>
       </div>
     </div>
 

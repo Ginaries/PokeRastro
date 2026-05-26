@@ -84,6 +84,12 @@ const LEGENDARY_POOL = [...LEGENDARY_IDS].sort((a, b) => a - b);
 const MYTHICAL_POOL = [...MYTHICAL_IDS].sort((a, b) => a - b);
 const AREA_LEGENDARY_SLOTS = 3;
 const AREA_MYTHICAL_SLOTS = 2;
+const ONLINE_MAX_HITS = 3;
+const ONLINE_CHOICES = {
+  rock: { label: "Piedra", beats: "scissors" },
+  paper: { label: "Papel", beats: "rock" },
+  scissors: { label: "Tijera", beats: "paper" }
+};
 
 const BALLS = [
   { id: "pokeBall", name: "Poke Ball", cost: 45, mod: 0.95, note: "Basica, confiable contra salvajes comunes." },
@@ -251,6 +257,22 @@ const els = {
   activeLevel: $("#activeLevel"),
   activeXp: $("#activeXp"),
   battleLog: $("#battleLog"),
+  createRoomBtn: $("#createRoomBtn"),
+  joinRoomBtn: $("#joinRoomBtn"),
+  leaveRoomBtn: $("#leaveRoomBtn"),
+  roomCodeInput: $("#roomCodeInput"),
+  roomCodeBox: $("#roomCodeBox"),
+  onlineBattleStatus: $("#onlineBattleStatus"),
+  onlinePlayerSprite: $("#onlinePlayerSprite"),
+  onlinePlayerName: $("#onlinePlayerName"),
+  onlinePlayerMeta: $("#onlinePlayerMeta"),
+  onlinePlayerHpBar: $("#onlinePlayerHpBar"),
+  onlineRivalSprite: $("#onlineRivalSprite"),
+  onlineRivalName: $("#onlineRivalName"),
+  onlineRivalMeta: $("#onlineRivalMeta"),
+  onlineRivalHpBar: $("#onlineRivalHpBar"),
+  onlineCountdown: $("#onlineCountdown"),
+  onlineBattleLog: $("#onlineBattleLog"),
   areaSelect: $("#areaSelect"),
   areaHint: $("#areaHint"),
   areaLegendaryList: $("#areaLegendaryList"),
@@ -277,6 +299,7 @@ const els = {
   pokedexBtn: $("#pokedexBtn"),
   shopBtn: $("#shopBtn"),
   centerBtn: $("#centerBtn"),
+  onlineBattleBtn: $("#onlineBattleBtn"),
   achievementsBtn: $("#achievementsBtn"),
   missionsBtn: $("#missionsBtn"),
   logBtn: $("#logBtn"),
@@ -363,6 +386,15 @@ let suppressCloudSave = false;
 let currentAdminTarget = null;
 let adminUsers = [];
 let quantityAction = null;
+let onlineBattle = {
+  roomId: "",
+  room: null,
+  unsubscribe: null,
+  busy: false,
+  statusMessage: "",
+  pendingChoices: {},
+  countdownTimer: null
+};
 
 boot();
 
@@ -423,6 +455,13 @@ function bindEvents() {
     control.addEventListener("change", () => renderPokedex(true));
   });
   els.centerBtn.addEventListener("click", openCenterForManualHeal);
+  els.onlineBattleBtn.addEventListener("click", openOnlineBattleModal);
+  els.createRoomBtn.addEventListener("click", createOnlineRoom);
+  els.joinRoomBtn.addEventListener("click", joinOnlineRoom);
+  els.leaveRoomBtn.addEventListener("click", leaveOnlineRoom);
+  document.querySelectorAll(".online-choice-btn").forEach((button) => {
+    button.addEventListener("click", () => chooseOnlineMove(button.dataset.onlineChoice));
+  });
   els.achievementsBtn.addEventListener("click", () => {
     renderAchievements();
     openModal("achievementsModal");
@@ -912,6 +951,533 @@ function healTeamAtCenter() {
   save();
 }
 
+function openOnlineBattleModal() {
+  renderOnlineBattle();
+  openModal("onlineBattleModal");
+}
+
+async function createOnlineRoom() {
+  if (!canUseOnlineBattle()) return;
+  setOnlineBusy(true, "Creando sala...");
+  try {
+    detachOnlineRoom();
+    const roomId = await uniqueRoomCode();
+    const player = onlinePlayerSnapshot(getActive());
+    await onlineRoomRef(roomId).set({
+      status: "waiting",
+      hostUid: cloud.user.uid,
+      participantUids: [cloud.user.uid],
+      playerOrder: [cloud.user.uid],
+      players: { [cloud.user.uid]: player },
+      hits: { [cloud.user.uid]: 0 },
+      round: 1,
+      phase: "choosing",
+      choices: {},
+      roundResult: null,
+      countdownEndsAt: null,
+      winnerUid: null,
+      log: [`${player.userId} creo la sala. El combate sera a 3 golpes.`],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    subscribeOnlineRoom(roomId);
+    els.roomCodeInput.value = roomId;
+    setOnlineStatus(`Sala ${roomId} creada. Comparte el codigo con tu rival.`);
+  } catch (error) {
+    setOnlineStatus(`No se pudo crear la sala: ${error.message}`);
+  } finally {
+    setOnlineBusy(false);
+  }
+}
+
+async function joinOnlineRoom() {
+  if (!canUseOnlineBattle()) return;
+  const roomId = normalizeRoomCode(els.roomCodeInput.value);
+  if (!roomId) {
+    setOnlineStatus("Ingresa un codigo de sala.");
+    return;
+  }
+  setOnlineBusy(true, "Entrando a sala...");
+  try {
+    detachOnlineRoom();
+    const ref = onlineRoomRef(roomId);
+    await cloud.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) throw new Error("La sala no existe");
+      const room = snapshot.data();
+      const players = room.players || {};
+      if (players[cloud.user.uid]) return;
+      if (room.status !== "waiting") throw new Error("La sala ya esta en combate");
+      if (Object.keys(players).length >= 2) throw new Error("La sala esta llena");
+      const player = onlinePlayerSnapshot(getActive());
+      const nextPlayers = { ...players, [cloud.user.uid]: player };
+      const nextHits = { ...(room.hits || {}), [cloud.user.uid]: 0 };
+      transaction.update(ref, {
+        players: nextPlayers,
+        hits: nextHits,
+        participantUids: firebase.firestore.FieldValue.arrayUnion(cloud.user.uid),
+        playerOrder: [...(room.playerOrder || Object.keys(players)), cloud.user.uid],
+        status: "active",
+        phase: "choosing",
+        round: Number(room.round) || 1,
+        choices: {},
+        roundResult: null,
+        countdownEndsAt: null,
+        log: onlineLog(room, `${player.userId} entro a la sala. Ronda 1: piedra, papel o tijera.`),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    subscribeOnlineRoom(roomId);
+    setOnlineStatus(`Entraste a la sala ${roomId}.`);
+  } catch (error) {
+    setOnlineStatus(`No se pudo entrar: ${error.message}`);
+  } finally {
+    setOnlineBusy(false);
+  }
+}
+
+async function leaveOnlineRoom(options = {}) {
+  const roomId = onlineBattle.roomId;
+  const uidValue = cloud?.user?.uid;
+  detachOnlineRoom();
+  renderOnlineBattle();
+  if (!roomId || !uidValue || options.localOnly) return;
+  try {
+    const ref = onlineRoomRef(roomId);
+    await cloud.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return;
+      const room = snapshot.data();
+      const players = room.players || {};
+      if (!players[uidValue]) return;
+      const rivalUid = Object.keys(players).find((id) => id !== uidValue);
+      const updates = {
+        status: rivalUid ? "finished" : "abandoned",
+        winnerUid: rivalUid || null,
+        log: onlineLog(room, `${players[uidValue].userId} salio de la sala.`),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      transaction.update(ref, updates);
+    });
+  } catch (error) {
+    setOnlineStatus(`Saliste de la sala, pero no se pudo avisar al servidor: ${error.message}`);
+  }
+}
+
+async function chooseOnlineMove(choice) {
+  if (!ONLINE_CHOICES[choice] || !onlineBattle.roomId || !cloud?.user || onlineBattle.busy) return;
+  const room = onlineBattle.room;
+  if (!canChooseOnlineMove(room, cloud.user.uid)) return;
+  const round = Number(room.round) || 1;
+  const nonce = uid();
+  const commit = await onlineChoiceCommit(onlineBattle.roomId, round, cloud.user.uid, choice, nonce);
+  setOnlineBusy(true, `Elegiste ${ONLINE_CHOICES[choice].label}. Esperando rival...`);
+  try {
+    await cloud.db.runTransaction(async (transaction) => {
+      const ref = onlineRoomRef(onlineBattle.roomId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) throw new Error("La sala ya no existe");
+      const current = snapshot.data();
+      const choices = current.choices || {};
+      if (current.status !== "active" || current.phase !== "choosing") throw new Error("La ronda no acepta jugadas");
+      if (!current.players?.[cloud.user.uid]) throw new Error("No estas en esta sala");
+      if (choices[cloud.user.uid]) throw new Error("Ya elegiste esta ronda");
+      transaction.update(ref, {
+        choices: {
+          ...choices,
+          [cloud.user.uid]: { commit, choice: null, nonce: null }
+        },
+        log: onlineLog(current, `${current.players[cloud.user.uid].userId} ya eligio.`),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    onlineBattle.pendingChoices[round] = { choice, nonce, commit };
+  } catch (error) {
+    setOnlineStatus(`No se pudo elegir: ${error.message}`);
+  } finally {
+    setOnlineBusy(false);
+  }
+}
+
+async function revealOnlineChoice() {
+  if (!onlineBattle.roomId || !cloud?.user || onlineBattle.busy) return;
+  const room = onlineBattle.room;
+  const round = Number(room?.round) || 1;
+  const pending = onlineBattle.pendingChoices[round];
+  if (!pending || !room?.choices?.[cloud.user.uid] || room.choices[cloud.user.uid].choice) return;
+  setOnlineBusy(true, "Revelando jugada...");
+  try {
+    await cloud.db.runTransaction(async (transaction) => {
+      const ref = onlineRoomRef(onlineBattle.roomId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) throw new Error("La sala ya no existe");
+      const current = snapshot.data();
+      const choices = current.choices || {};
+      const myEntry = choices[cloud.user.uid];
+      if (current.status !== "active" || current.phase !== "choosing") return;
+      if (!myEntry || myEntry.choice) return;
+      const expected = await onlineChoiceCommit(onlineBattle.roomId, Number(current.round) || 1, cloud.user.uid, pending.choice, pending.nonce);
+      if (expected !== myEntry.commit) throw new Error("La jugada local no coincide");
+      const nextChoices = {
+        ...choices,
+        [cloud.user.uid]: { ...myEntry, choice: pending.choice, nonce: pending.nonce }
+      };
+      const updates = {
+        choices: nextChoices,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (onlineBothRevealed(current, nextChoices)) {
+        Object.assign(updates, resolveOnlineRound(current, nextChoices));
+      }
+      transaction.update(ref, {
+        ...updates
+      });
+    });
+  } catch (error) {
+    setOnlineStatus(`No se pudo revelar: ${error.message}`);
+  } finally {
+    setOnlineBusy(false);
+  }
+}
+
+async function advanceOnlineRound() {
+  if (!onlineBattle.roomId || !cloud?.user || onlineBattle.busy) return;
+  try {
+    await cloud.db.runTransaction(async (transaction) => {
+      const ref = onlineRoomRef(onlineBattle.roomId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) return;
+      const current = snapshot.data();
+      if (current.status !== "active" || current.phase !== "countdown") return;
+      if (Date.now() < Number(current.countdownEndsAt || 0)) return;
+      if (current.roundResult?.finished) {
+        transaction.update(ref, {
+          status: "finished",
+          phase: "finished",
+          winnerUid: current.roundResult.battleWinnerUid || null,
+          countdownEndsAt: null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return;
+      }
+      const nextRound = (Number(current.round) || 1) + 1;
+      transaction.update(ref, {
+        phase: "choosing",
+        round: nextRound,
+        choices: {},
+        roundResult: null,
+        countdownEndsAt: null,
+        log: onlineLog(current, `Ronda ${nextRound}: elijan de nuevo.`),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+  } catch (error) {
+    setOnlineStatus(`No se pudo avanzar la ronda: ${error.message}`);
+  }
+}
+
+function renderOnlineBattle() {
+  if (!els.onlineBattleStatus) return;
+  const room = onlineBattle.room;
+  const uidValue = cloud?.user?.uid || "";
+  const players = room?.players || {};
+  const hits = room?.hits || {};
+  const me = players[uidValue] || null;
+  const rivalUid = Object.keys(players).find((id) => id !== uidValue);
+  const rival = rivalUid ? players[rivalUid] : null;
+  const active = getActive();
+
+  renderOnlineFighter("Player", me?.pokemon || active, me?.userId || state.syncUserId || "Tu cuenta", hits[uidValue] || 0, Boolean(me));
+  renderOnlineFighter("Rival", rival?.pokemon || null, rival?.userId || "Esperando rival", hits[rivalUid] || 0, Boolean(rival));
+
+  const inRoom = Boolean(onlineBattle.roomId);
+  els.roomCodeBox.classList.toggle("hidden", !inRoom);
+  els.roomCodeBox.textContent = inRoom ? `Codigo de sala: ${onlineBattle.roomId}` : "";
+  els.createRoomBtn.disabled = onlineBattle.busy || inRoom || !cloud?.user || !active;
+  els.joinRoomBtn.disabled = onlineBattle.busy || inRoom || !cloud?.user || !active;
+  els.leaveRoomBtn.disabled = onlineBattle.busy || !inRoom;
+  document.querySelectorAll(".online-choice-btn").forEach((button) => {
+    const choice = button.dataset.onlineChoice;
+    button.disabled = onlineBattle.busy || !canChooseOnlineMove(room, uidValue);
+    button.classList.toggle("selected", onlineSelectedChoice(room, uidValue) === choice);
+  });
+  renderOnlineCountdown(room);
+  syncOnlineRoundEffects(room);
+  els.onlineBattleLog.innerHTML = (room?.log || ["Los eventos del combate apareceran aca."])
+    .map((item) => `<p>${item}</p>`)
+    .join("");
+
+  if (!onlineBattle.statusMessage) {
+    if (!cloud) setOnlineStatus("Firebase no esta configurado: el combate online necesita Firestore.", false);
+    else if (!cloud.user) setOnlineStatus("Inicia sesion para crear o entrar a una sala online.", false);
+    else if (!active) setOnlineStatus("Necesitas un Pokemon activo.", false);
+    else if (!room) setOnlineStatus("Crea una sala o entra con un codigo.", false);
+    else if (room.status === "waiting") setOnlineStatus("Sala creada. Esperando rival.", false);
+    else if (room.status === "active" && room.phase === "countdown") setOnlineStatus("Revelando resultado...", false);
+    else if (room.status === "active") setOnlineStatus(onlineSelectedChoice(room, uidValue) ? "Jugada enviada. Esperando resolucion." : `Ronda ${room.round || 1}: elegi piedra, papel o tijera.`, false);
+    else if (room.status === "finished") setOnlineStatus(room.winnerUid === uidValue ? "Ganaste el combate online." : "Combate finalizado.", false);
+    else setOnlineStatus("Sala cerrada.", false);
+  }
+}
+
+function renderOnlineFighter(side, mon, userId, hitsTaken, joined) {
+  const prefix = side === "Player" ? "onlinePlayer" : "onlineRival";
+  const sprite = els[`${prefix}Sprite`];
+  const name = els[`${prefix}Name`];
+  const meta = els[`${prefix}Meta`];
+  const bar = els[`${prefix}HpBar`];
+  if (!mon) {
+    sprite.removeAttribute("src");
+    sprite.alt = "";
+    name.textContent = userId;
+    meta.textContent = side === "Player" ? "Elige tu activo antes de combatir." : "Comparte el codigo de sala.";
+    bar.style.width = "0%";
+    return;
+  }
+  sprite.src = mon.shiny ? mon.shinySprite : mon.sprite;
+  sprite.onerror = () => setFallbackSprite(sprite, mon);
+  sprite.alt = mon.displayName;
+  name.textContent = mon.displayName;
+  meta.textContent = joined
+    ? `${userId} - Nv. ${mon.level} - golpes ${hitsTaken}/${ONLINE_MAX_HITS}`
+    : `Vista previa - Nv. ${mon.level} - poder ${powerScore(mon)}`;
+  bar.style.width = `${clamp(Math.round(((ONLINE_MAX_HITS - hitsTaken) / ONLINE_MAX_HITS) * 100), 0, 100)}%`;
+}
+
+function canChooseOnlineMove(room, uidValue) {
+  return Boolean(
+    room
+    && uidValue
+    && room.status === "active"
+    && room.phase === "choosing"
+    && Object.keys(room.players || {}).length === 2
+    && !room.choices?.[uidValue]
+  );
+}
+
+function onlineSelectedChoice(room, uidValue) {
+  const round = Number(room?.round) || 0;
+  const revealed = room?.choices?.[uidValue]?.choice;
+  if (revealed) return revealed;
+  return onlineBattle.pendingChoices[round]?.choice || null;
+}
+
+function onlineBothRevealed(room, choices = room?.choices || {}) {
+  const playerIds = Object.keys(room.players || {});
+  return playerIds.length === 2 && playerIds.every((uidValue) => choices[uidValue]?.choice && choices[uidValue]?.nonce);
+}
+
+function resolveOnlineRound(room, choices) {
+  const playerIds = Object.keys(room.players || {});
+  const [firstUid, secondUid] = playerIds;
+  const firstChoice = choices[firstUid].choice;
+  const secondChoice = choices[secondUid].choice;
+  const players = room.players || {};
+  const hits = { ...(room.hits || {}) };
+  let winnerUid = null;
+  let loserUid = null;
+  let resultText = `Ronda ${room.round}: empate con ${onlineChoiceLabel(firstChoice)}. Nadie recibe golpe.`;
+
+  if (firstChoice !== secondChoice) {
+    winnerUid = ONLINE_CHOICES[firstChoice].beats === secondChoice ? firstUid : secondUid;
+    loserUid = winnerUid === firstUid ? secondUid : firstUid;
+    hits[loserUid] = (Number(hits[loserUid]) || 0) + 1;
+    const damage = onlineRoundDamage(players[winnerUid].pokemon, players[loserUid].pokemon);
+    resultText = `Ronda ${room.round}: ${players[winnerUid].userId} uso ${onlineChoiceLabel(choices[winnerUid].choice)} y golpeo a ${players[loserUid].pokemon.displayName} por ${damage} de dano.`;
+  }
+
+  const finished = loserUid && hits[loserUid] >= ONLINE_MAX_HITS;
+  const battleWinnerUid = finished ? winnerUid : null;
+  return {
+    phase: "countdown",
+    status: "active",
+    hits,
+    winnerUid: null,
+    roundResult: {
+      round: room.round || 1,
+      winnerUid,
+      loserUid,
+      finished,
+      battleWinnerUid,
+      choices: {
+        [firstUid]: firstChoice,
+        [secondUid]: secondChoice
+      },
+      text: finished ? `${resultText} ${players[battleWinnerUid].userId} gana el combate.` : resultText
+    },
+    countdownEndsAt: Date.now() + 3000,
+    log: onlineLog(room, finished ? `${resultText} ${players[battleWinnerUid].userId} gana el combate.` : resultText),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+}
+
+function renderOnlineCountdown(room) {
+  if (!els.onlineCountdown) return;
+  if (!room) {
+    els.onlineCountdown.textContent = "Elige tu jugada";
+    els.onlineCountdown.classList.remove("counting");
+    return;
+  }
+  if (room.status === "finished") {
+    els.onlineCountdown.textContent = "Combate terminado";
+    els.onlineCountdown.classList.remove("counting");
+    return;
+  }
+  if (room.phase === "countdown") {
+    const remaining = Math.max(0, Math.ceil((Number(room.countdownEndsAt || 0) - Date.now()) / 1000));
+    els.onlineCountdown.textContent = remaining > 0 ? String(remaining) : "Golpe";
+    els.onlineCountdown.classList.add("counting");
+    return;
+  }
+  els.onlineCountdown.textContent = onlineSelectedChoice(room, cloud?.user?.uid || "")
+    ? "Tu jugada esta oculta hasta que el rival elija"
+    : "Elige piedra, papel o tijera";
+  els.onlineCountdown.classList.remove("counting");
+}
+
+function syncOnlineRoundEffects(room) {
+  window.clearTimeout(onlineBattle.countdownTimer);
+  onlineBattle.countdownTimer = null;
+  if (!room || room.status !== "active") return;
+  if (room.phase === "choosing") {
+    const playersReady = Object.keys(room.players || {}).length === 2;
+    const choices = room.choices || {};
+    const allCommitted = playersReady && Object.keys(room.players || {}).every((uidValue) => choices[uidValue]?.commit);
+    if (allCommitted) revealOnlineChoice();
+    return;
+  }
+  if (room.phase === "countdown") {
+    const delay = Math.max(120, Number(room.countdownEndsAt || 0) - Date.now());
+    onlineBattle.countdownTimer = window.setTimeout(() => {
+      renderOnlineBattle();
+      advanceOnlineRound();
+    }, Math.min(delay, 1000));
+  }
+}
+
+function onlineRoundDamage(attacker, defender) {
+  const hit = damageRoll(attacker, defender);
+  return Math.max(1, Math.round((hit.amount / Math.max(1, defender.maxHp)) * 100));
+}
+
+function onlineChoiceLabel(choice) {
+  return ONLINE_CHOICES[choice]?.label || "Jugada";
+}
+
+async function onlineChoiceCommit(roomId, round, uidValue, choice, nonce) {
+  const text = `${roomId}:${round}:${uidValue}:${choice}:${nonce}`;
+  if (window.crypto?.subtle) {
+    const bytes = new TextEncoder().encode(text);
+    const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  return simpleHash(text);
+}
+
+function simpleHash(text) {
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return `fallback-${Math.abs(hash)}`;
+}
+
+function canUseOnlineBattle() {
+  if (!cloud) {
+    setOnlineStatus("Firebase no esta configurado.");
+    return false;
+  }
+  if (!cloud.user) {
+    setOnlineStatus("Inicia sesion para usar combate online.");
+    return false;
+  }
+  if (!getActive()) {
+    setOnlineStatus("Necesitas un Pokemon activo.");
+    return false;
+  }
+  return true;
+}
+
+function onlinePlayerSnapshot(mon) {
+  return {
+    uid: cloud.user.uid,
+    userId: state.syncUserId || cloud.user.displayName || "jugador",
+    pokemon: {
+      apiId: mon.apiId,
+      uid: mon.uid,
+      displayName: mon.displayName,
+      level: mon.level,
+      shiny: Boolean(mon.shiny),
+      rarity: mon.rarity,
+      types: [...mon.types],
+      baseStats: { ...mon.baseStats },
+      statBonus: { ...mon.statBonus },
+      stats: { ...mon.stats },
+      maxHp: mon.maxHp,
+      currentHp: mon.maxHp,
+      sprite: mon.sprite,
+      shinySprite: mon.shinySprite
+    }
+  };
+}
+
+function subscribeOnlineRoom(roomId) {
+  detachOnlineRoom();
+  onlineBattle.roomId = roomId;
+  onlineBattle.unsubscribe = onlineRoomRef(roomId).onSnapshot((snapshot) => {
+    onlineBattle.room = snapshot.exists ? snapshot.data() : null;
+    if (!snapshot.exists) onlineBattle.roomId = "";
+    onlineBattle.statusMessage = "";
+    renderOnlineBattle();
+  }, (error) => {
+    setOnlineStatus(`Se perdio la conexion con la sala: ${error.message}`);
+  });
+}
+
+function detachOnlineRoom() {
+  if (onlineBattle.unsubscribe) onlineBattle.unsubscribe();
+  onlineBattle.unsubscribe = null;
+  onlineBattle.roomId = "";
+  onlineBattle.room = null;
+  onlineBattle.statusMessage = "";
+}
+
+async function uniqueRoomCode() {
+  for (let tries = 0; tries < 8; tries += 1) {
+    const code = randomRoomCode();
+    const doc = await onlineRoomRef(code).get();
+    if (!doc.exists) return code;
+  }
+  throw new Error("No se pudo reservar un codigo");
+}
+
+function onlineRoomRef(roomId) {
+  return cloud.db.collection("battleRooms").doc(roomId);
+}
+
+function randomRoomCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function normalizeRoomCode(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+function onlineLog(room, message) {
+  return [message, ...(room.log || [])].slice(0, 30);
+}
+
+function setOnlineBusy(value, message = "") {
+  onlineBattle.busy = value;
+  if (message) setOnlineStatus(message);
+  renderOnlineBattle();
+}
+
+function setOnlineStatus(message, persist = true) {
+  if (persist) onlineBattle.statusMessage = message;
+  if (els.onlineBattleStatus) els.onlineBattleStatus.textContent = message;
+}
+
 function buyItem(itemId, cost, name) {
   return buyItemQuantity(itemId, cost, name, 1);
 }
@@ -953,6 +1519,7 @@ function render() {
   renderAchievements();
   renderMissions();
   renderAutoBattle();
+  renderOnlineBattle();
   els.attackBtn.disabled = busy || !state.wild;
   updateAutoBattleButton();
   els.ballBtn.disabled = busy || !state.wild || totalBalls() <= 0;
@@ -2799,6 +3366,7 @@ async function logoutAccount() {
   if (!window.confirm("Cerrar sesion y volver a la pantalla de acceso?")) return;
   try {
     window.clearTimeout(cloudSaveTimer);
+    await leaveOnlineRoom().catch(() => {});
     if (cloud?.user) await saveCloudState(cloud.user.uid).catch(() => {});
     if (cloud?.auth) await cloud.auth.signOut();
   } catch (error) {

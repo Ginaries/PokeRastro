@@ -792,6 +792,117 @@ h3 {
   gap: 5px;
 }
 
+.online-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.online-lobby {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) minmax(140px, 1fr) minmax(110px, auto) minmax(120px, auto);
+  gap: 10px;
+  align-items: end;
+}
+
+.online-lobby label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.room-code-box {
+  border: 1px solid rgba(121, 188, 255, 0.42);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(39, 127, 194, 0.18);
+  color: var(--blue);
+  font-weight: 1000;
+  text-align: center;
+}
+
+.online-arena {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.online-fighter {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+}
+
+.online-fighter img {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 16px 8px rgba(0, 0, 0, 0.32));
+}
+
+.online-fighter.rival img {
+  transform: scaleX(-1);
+}
+
+.online-fighter h3 {
+  margin: 0;
+}
+
+.online-fighter p:not(.eyebrow) {
+  min-height: 38px;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.online-fighter .health-bar {
+  width: 100%;
+}
+
+.online-countdown {
+  min-height: 58px;
+  border: 1px solid rgba(121, 188, 255, 0.28);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 12, 18, 0.52);
+  color: var(--muted);
+  font-weight: 1000;
+  text-align: center;
+}
+
+.online-countdown.counting {
+  color: var(--yellow);
+  font-size: 2rem;
+}
+
+.rps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.online-choice-btn {
+  min-height: 58px;
+}
+
+.online-choice-btn.selected {
+  border-color: rgba(84, 223, 131, 0.78);
+  background: rgba(21, 128, 61, 0.52);
+}
+
+.online-log {
+  max-height: 220px;
+}
+
 .admin-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1237,7 +1348,10 @@ h3 {
   .shop-status-row,
   .bag-grid,
   .stats-actions,
-  .admin-grid {
+  .admin-grid,
+  .online-lobby,
+  .online-arena,
+  .rps-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1254,6 +1368,9 @@ h3 {
   .bag-grid,
   .stats-actions,
   .admin-grid,
+  .online-lobby,
+  .online-arena,
+  .rps-grid,
   .mini-stats,
   .side-panel {
     grid-template-columns: 1fr;
