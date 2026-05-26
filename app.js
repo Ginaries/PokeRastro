@@ -6,6 +6,7 @@ const SAVE_KEY = "pokerastro-save-v3";
 const SESSION_KEY = "pokerastro-session";
 const MUSIC_PREF_KEY = "pokerastro-music";
 const OLD_SAVE_KEYS = ["pokerastro-save-v2", "pokerastro-save-v1"];
+const CLOUD_POKEMON_CHUNK_SIZE = 60;
 const AUTO_MONEY_REWARD_MULTIPLIER = 1.35;
 const AUTO_SEARCH_COSTS = {
   type: 55,
@@ -3941,7 +3942,16 @@ async function createCloudAccount(credentials) {
 
 async function loadCloudSave(uid) {
   const doc = await cloud.db.collection("saves").doc(uid).get();
-  return doc.exists ? doc.data().save : null;
+  if (!doc.exists) return null;
+  const data = doc.data() || {};
+  const saveData = data.save || null;
+  if (!saveData) return null;
+  const chunks = await cloud.db.collection("saves").doc(uid).collection("pokemonChunks").orderBy("index").get();
+  if (chunks.empty) return saveData;
+  return {
+    ...saveData,
+    collection: chunks.docs.flatMap((chunk) => chunk.data().pokemon || [])
+  };
 }
 
 async function saveCloudState(uid = cloud?.user?.uid, options = {}) {
@@ -3950,11 +3960,29 @@ async function saveCloudState(uid = cloud?.user?.uid, options = {}) {
   const snapshot = JSON.parse(JSON.stringify(state));
   await assertCloudCollectionSaveAllowed(uid, snapshot, options);
   const summary = playerCloudSummary(snapshot);
-  await cloud.db.collection("saves").doc(uid).set({
+  const chunks = chunkPokemonCollection(snapshot.collection || []);
+  const cloudSave = { ...snapshot, collection: [] };
+  const saveRef = cloud.db.collection("saves").doc(uid);
+  const batch = cloud.db.batch();
+  batch.set(saveRef, {
     ...summary,
-    save: snapshot,
+    save: cloudSave,
+    saveVersion: 4,
+    pokemonChunkCount: chunks.length,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
+  chunks.forEach((pokemon, index) => {
+    batch.set(saveRef.collection("pokemonChunks").doc(String(index)), {
+      index,
+      pokemon,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  });
+  const previousChunkCount = Number(options.previousChunkCount ?? 0);
+  for (let index = chunks.length; index < previousChunkCount; index += 1) {
+    batch.delete(saveRef.collection("pokemonChunks").doc(String(index)));
+  }
+  await batch.commit();
   await cloud.db.collection("profiles").doc(uid).set({
     uid,
     userId: summary.userId,
@@ -3966,13 +3994,21 @@ async function saveCloudState(uid = cloud?.user?.uid, options = {}) {
   }, { merge: true }).catch(() => {});
 }
 
+function chunkPokemonCollection(collection) {
+  const chunks = [];
+  for (let index = 0; index < collection.length; index += CLOUD_POKEMON_CHUNK_SIZE) {
+    chunks.push(collection.slice(index, index + CLOUD_POKEMON_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
 async function assertCloudCollectionSaveAllowed(uid, snapshot, options = {}) {
-  if (options.allowCollectionShrink) return;
   const nextCount = snapshot.collection?.length || 0;
   try {
     const doc = await cloud.db.collection("saves").doc(uid).get();
     const previousCount = Number(doc.data()?.collectionCount || doc.data()?.save?.collection?.length || 0);
-    if (previousCount >= 25 && previousCount - nextCount >= 25) {
+    options.previousChunkCount = Number(doc.data()?.pokemonChunkCount || 0);
+    if (!options.allowCollectionShrink && previousCount >= 25 && previousCount - nextCount >= 25) {
       throw new Error(`Guardado bloqueado: la coleccion bajaria de ${previousCount} a ${nextCount} Pokemon.`);
     }
   } catch (error) {
@@ -4035,8 +4071,14 @@ function scheduleCloudSave(now = false) {
   if (!cloud?.user || suppressCloudSave || !cloudSaveReady) return;
   window.clearTimeout(cloudSaveTimer);
   cloudSaveTimer = window.setTimeout(() => {
-    saveCloudState().catch(() => {});
+    saveCloudState().catch((error) => reportCloudSaveError(error));
   }, now ? 0 : 900);
+}
+
+function reportCloudSaveError(error) {
+  const message = error?.message || "error desconocido";
+  log(`No se pudo guardar en la nube: ${message}`);
+  setMessage(`No se pudo guardar en la nube: ${message}`);
 }
 
 async function applyCloudGrants(uid) {
@@ -4413,8 +4455,12 @@ function defaultAutoBattle() {
 }
 
 function save() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   scheduleCloudSave();
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (error) {
+    log(`No se pudo guardar en este navegador: ${error.message || "almacenamiento lleno"}`);
+  }
 }
 
 function log(message) {
